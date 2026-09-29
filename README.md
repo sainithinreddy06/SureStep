@@ -1,296 +1,164 @@
 # TerraGuard AI
 
-> AI-powered terrain intelligence and backcountry safety platform for smarter, safer hiking.
+> AI-powered terrain intelligence and backcountry safety platform for smarter and safer hiking.
 
-TerraGuard AI combines terrain analysis, weather awareness, camera-based ground guidance, geological hazard monitoring, navigation, session tracking, an AI Ranger Copilot, and a machine-learning terrain risk engine in one application.
+TerraGuard AI is an intelligent hiking and backcountry safety platform that combines **terrain analysis, machine learning, weather awareness, camera-based ground guidance, geological hazard monitoring, navigation, session tracking, and an AI Ranger Copilot** into a unified application.
 
-## Core capabilities
+The platform is designed to provide hikers with contextual information about terrain conditions and potential hazards while supporting safer route planning and outdoor decision-making.
 
-- AI ground-vision guidance for trail surfaces and foot placement
-- Live weather awareness through Open-Meteo
-- USGS earthquake and geological hazard monitoring
-- Tactical map and GPS trail tracking
-- Hiking session tracking and historical incident storage
-- Gemini-powered Ranger AI Copilot
-- **Machine-learning terrain risk prediction** using a Random Forest model
-- Risk score, risk level, model confidence, and primary risk factors
+---
 
-## Architecture
+## Features
 
-```text
-TerraGuard AI
-│
-├── frontend/       React + Vite + TypeScript
-│       │
-│       └── /api/*
-│               │
-├── backend/        Node.js + Express + Gemini
-│       │
-│       └── /api/ml/*
-│               │
-└───────┬───────────┘
-        ▼
-   ml-service/      Python + FastAPI + scikit-learn
-        │
-        └── Random Forest Terrain Risk Model
-```
+### AI Terrain Risk Prediction
 
-## Project structure
+TerraGuard AI includes a dedicated machine-learning engine that analyzes environmental and terrain-related factors to estimate terrain risk.
 
-```text
-TerraGuard-AI/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── TerrainMLCard.tsx
-│   │   ├── services/
-│   │   │   └── mlService.ts
-│   │   └── ...
-│   └── package.json
-│
-├── backend/
-│   ├── server.ts
-│   ├── .env.example
-│   └── package.json
-│
-├── ml-service/
-│   ├── data/
-│   ├── models/
-│   │   └── terrain_risk_model.joblib
-│   ├── training/
-│   │   ├── train.py
-│   │   └── evaluate.py
-│   ├── services/
-│   ├── main.py
-│   ├── requirements.txt
-│   └── README.md
-│
-├── .gitignore
-└── README.md
-```
+The system provides:
 
-# Run locally
+- Risk score from 0–100
+- Risk level
+- Model confidence
+- Primary risk factors
+- Random Forest model prediction
+- Terrain-aware risk analysis
 
-You need three terminal windows.
+The current ML service uses:
 
-## 1. Frontend
+- Python
+- FastAPI
+- Scikit-learn
+- Random Forest
+- Pandas
+- NumPy
+- Joblib
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+---
 
-Frontend:
+### AI Ground-Vision Guidance
 
-```text
-http://localhost:5173
-```
+The application supports camera-based terrain awareness designed to help identify ground conditions and provide contextual foot-placement guidance.
 
-## 2. Express backend
+Potential terrain categories include:
 
-```bash
-cd backend
-npm install
-```
+- Stable rock
+- Loose gravel
+- Mud
+- Snow
+- Uneven terrain
 
-Create `backend/.env` from `backend/.env.example`:
+The vision system can be extended with dedicated computer-vision models for more advanced terrain classification.
 
-```env
-GEMINI_API_KEY="your_key_here"
-PORT=3000
-ML_SERVICE_URL=http://127.0.0.1:8000
-```
+---
 
-Start the backend:
+### Weather Awareness
 
-```bash
-npm run dev
-```
+TerraGuard AI integrates weather information into its safety intelligence layer.
 
-Backend:
+Weather-related information can include:
 
-```text
-http://localhost:3000
-```
-
-## 3. Machine-learning service
-
-```bash
-cd ml-service
-python -m pip install -r requirements.txt
-```
-
-The repository already contains the trained model artifact. To retrain it:
-
-```bash
-python training/train.py
-```
-
-Evaluate the model:
-
-```bash
-python training/evaluate.py
-```
-
-Start the ML API:
-
-```bash
-python -m uvicorn main:app --reload --port 8000
-```
-
-ML service:
-
-```text
-http://localhost:8000
-```
-
-Health check:
-
-```text
-GET http://localhost:8000/health
-```
-
-Prediction:
-
-```text
-POST http://localhost:8000/predict-risk
-```
-
-# Machine-learning integration
-
-The ML engine predicts a terrain risk score from 0 to 100 using:
-
-- Elevation
-- Slope
 - Temperature
 - Humidity
 - Rainfall
 - Wind speed
-- Seismic activity indicator
-- Historical incident count
-- Terrain type
+- Weather conditions
+- Visibility
 
-Example response:
+Weather information can also be used as an input for terrain-risk analysis.
 
-```json
-{
-  "risk_score": 72,
-  "risk_level": "HIGH",
-  "confidence": 88,
-  "top_factors": [
-    "Steep terrain slope",
-    "Recent precipitation",
-    "Strong wind conditions"
-  ],
-  "model": "Random Forest",
-  "model_version": "TG-RISK-1.0"
-}
-```
+---
 
-The frontend displays the prediction in the **Risk & Incidents** section through the `TerrainMLCard` component.
+### Geological Hazard Monitoring
 
-## Model note
+The application can monitor geological and environmental hazards using external data sources.
 
-The included model is a **bootstrap/demo ML model** trained by `ml-service/training/train.py` from a transparent generated dataset so the project can run end-to-end without requiring a separate dataset download.
+Current integrations include:
 
-The current training evaluation produced approximately:
+- USGS earthquake data
+- Geological hazard information
+- Seismic activity indicators
+- Historical incidents
 
-```text
-MAE: 3.69
-R²: 0.803
-```
+The system can associate hazard information with the user's location and hiking session.
 
-These metrics describe the generated bootstrap dataset and **must not be interpreted as real-world hiking safety accuracy**. For production or research use, replace the generated training data with a documented real-world dataset and independently validate the model.
+---
 
-# API flow
+### Tactical Navigation
 
-```text
-React Frontend
-      │
-      │ POST /api/ml/predict-risk
-      ▼
-Express Backend
-      │
-      │ POST /predict-risk
-      ▼
-Python ML Service
-      │
-      ▼
-Random Forest Model
-      │
-      ▼
-Risk prediction
-      │
-      ▼
-Express → React
-```
+TerraGuard AI provides an interactive map and GPS-based navigation experience.
 
-## Vite proxy
+Features include:
 
-During local development, Vite forwards `/api/*` requests to the Express backend on port 3000.
+- Interactive maps
+- GPS positioning
+- Route tracking
+- Trail visualization
+- Location monitoring
+- Tactical map interface
 
-The frontend therefore calls:
+---
 
-```text
-/api/ml/predict-risk
-```
+### Hiking Session Tracking
 
-instead of exposing the ML service URL directly in the browser.
+Users can track hiking sessions and maintain information about previous activities.
 
-# Security
+Session-related functionality can include:
 
-- Never commit `backend/.env`.
-- Keep `GEMINI_API_KEY` on the backend.
-- Do not put private API keys in frontend source code.
-- Use HTTPS for production deployments.
-- Review ML outputs before using them for any real-world safety decision.
+- Route tracking
+- Session history
+- Location information
+- Historical incidents
+- Hiking activity data
 
-# Branding
+---
 
-The application branding is **TerraGuard AI**.
+### AI Ranger Copilot
 
-The selected TG mountain logo is stored at:
+The AI Ranger Copilot provides AI-powered assistance for hiking and backcountry scenarios.
+
+It can provide contextual assistance related to:
+
+- Hiking preparation
+- Terrain conditions
+- Weather
+- Navigation
+- Potential hazards
+- Route information
+- Outdoor safety
+
+The architecture allows terrain-risk predictions and environmental information to be incorporated into AI-assisted responses.
+
+---
+
+# System Architecture
 
 ```text
-frontend/src/assets/images/terraguard-logo.png
-```
-
-# Deployment
-
-Recommended production layout:
-
-```text
-Vercel / Netlify
-       │
-       ▼
-   Frontend
-       │
-       ▼
-Render / Railway
-       │
-       ├── Express Backend
-       │
-       └── Python ML Service
-       │
-       ├── Gemini API
-       └── Firebase / Firestore
-```
-
-For production, set the backend `ML_SERVICE_URL` to the deployed Python ML service URL.
-
-# Git workflow
-
-```bash
-git add .
-git commit -m "Integrate machine learning terrain risk engine"
-git push origin main
-```
-
-# Author
-
-**Sai Nithin Reddy Tadugam**
-
-Computer Science & Engineering
-
-**TerraGuard AI**
+                         TerraGuard AI
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ React Frontend   │
+                    │ Vite + TypeScript│
+                    └────────┬─────────┘
+                             │
+                         /api/*
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Express Backend  │
+                    │ Node.js + Gemini │
+                    └────────┬─────────┘
+                             │
+                       /api/ml/*
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Python ML API    │
+                    │ FastAPI          │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Random Forest    │
+                    │ Risk Model       │
+                    └──────────────────┘
