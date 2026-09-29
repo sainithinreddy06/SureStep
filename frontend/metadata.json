@@ -1,0 +1,9 @@
+{
+  "name": "TerraGuard AI",
+  "description": "Live hiking navigation, weather-aware terrain risk analysis, and deliberate safety center for outdoor routes.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "trail_incidents": {
+      "title": "Trail Incident History",
+      "description": "Historical accidents, rockfalls, and mountain rescue records at GPS locations",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "trailId": { "type": "string" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" },
+            "altitude": { "type": "number" }
+          }
+        },
+        "severity": { "type": "string", "enum": ["moderate", "high", "critical"] },
+        "incidentType": { "type": "string" },
+        "occurredAt": { "type": "string" },
+        "outcome": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "trailId", "incidentType", "severity"]
+    },
+    "ground_scans": {
+      "title": "Ground Vision Scans",
+      "description": "Historical AI surface scans and footstep records",
+      "type": "object",
+      "properties": {
+        "trailId": { "type": "string" },
+        "coordinates": { "type": "object" },
+        "slope": { "type": "number" },
+        "gripIndex": { "type": "string" },
+        "warning": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    }
+  }
+}
