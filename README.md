@@ -2,7 +2,7 @@
 
 > AI-powered terrain intelligence and backcountry safety platform for smarter and safer hiking.
 
-TerraGuard AI is an intelligent hiking and backcountry safety platform that combines **terrain analysis, machine learning, weather awareness, camera-based ground guidance, geological hazard monitoring, navigation, session tracking, and an AI Ranger Copilot** into a unified application.
+TerraGuard AI is an intelligent hiking and backcountry safety platform that combines **terrain analysis, machine learning, computer vision, weather awareness, geological hazard monitoring, navigation, session tracking, and an AI Ranger Copilot** into a unified application.
 
 The platform is designed to provide hikers with contextual information about terrain conditions and potential hazards while supporting safer route planning and outdoor decision-making.
 
@@ -23,7 +23,7 @@ The system provides:
 - Random Forest model prediction
 - Terrain-aware risk analysis
 
-The current ML service uses:
+The ML service uses:
 
 - Python
 - FastAPI
@@ -35,19 +35,35 @@ The current ML service uses:
 
 ---
 
-### AI Ground-Vision Guidance
+### TerraGuard Vision
 
-The application supports camera-based terrain awareness designed to help identify ground conditions and provide contextual foot-placement guidance.
+TerraGuard Vision provides camera-based environmental analysis using **YOLO object detection**.
 
-Potential terrain categories include:
+The system supports:
 
-- Stable rock
-- Loose gravel
-- Mud
-- Snow
-- Uneven terrain
+- Live camera detection
+- Image detection
+- Video frame analysis
+- Object detection
+- Bounding boxes
+- Confidence scores
+- Adjustable confidence threshold
+- Hazard classification
+- Risk assessment
+- Safety recommendations
+- Detection history
+- GPS-aware detection logging
+- Tactical Map hazard integration
 
-The vision system can be extended with dedicated computer-vision models for more advanced terrain classification.
+The current computer-vision service uses:
+
+- Ultralytics YOLO
+- PyTorch
+- Torchvision
+- OpenCV
+- Pillow
+
+The architecture is designed to support a future custom `best.pt` model trained specifically for hiking and outdoor hazards.
 
 ---
 
@@ -63,8 +79,9 @@ Weather-related information can include:
 - Wind speed
 - Weather conditions
 - Visibility
+- Forecast information
 
-Weather information can also be used as an input for terrain-risk analysis.
+Weather information can also be incorporated into terrain-risk analysis and safety decisions.
 
 ---
 
@@ -72,14 +89,19 @@ Weather information can also be used as an input for terrain-risk analysis.
 
 The application can monitor geological and environmental hazards using external data sources.
 
-Current integrations include:
+Current functionality includes:
 
 - USGS earthquake data
-- Geological hazard information
+- Geological event information
 - Seismic activity indicators
+- Hazard alerts
+- Event severity
+- Distance information
 - Historical incidents
+- Alert dismissal
+- Audio alert support
 
-The system can associate hazard information with the user's location and hiking session.
+Hazard information can be associated with the user's location and hiking session.
 
 ---
 
@@ -94,7 +116,12 @@ Features include:
 - Route tracking
 - Trail visualization
 - Location monitoring
+- Hazard markers
+- Reported hazard locations
+- Vision-generated hazard locations
 - Tactical map interface
+
+Hazards detected through TerraGuard Vision can be logged directly to the Tactical Map.
 
 ---
 
@@ -105,10 +132,28 @@ Users can track hiking sessions and maintain information about previous activiti
 Session-related functionality can include:
 
 - Route tracking
+- Session status
+- GPS information
 - Session history
 - Location information
-- Historical incidents
 - Hiking activity data
+
+---
+
+### Hazard Reporting
+
+TerraGuard AI allows users to manually report hazards encountered during a hike.
+
+A hazard report can contain:
+
+- Hazard type
+- Severity
+- Description
+- GPS coordinates
+- Timestamp
+- Verification information
+
+Computer-vision detections can also be converted into hazard reports for visualization on the Tactical Map.
 
 ---
 
@@ -126,39 +171,77 @@ It can provide contextual assistance related to:
 - Route information
 - Outdoor safety
 
-The architecture allows terrain-risk predictions and environmental information to be incorporated into AI-assisted responses.
+The architecture allows terrain-risk predictions, weather information, and environmental data to be incorporated into AI-assisted responses.
 
 ---
 
-# System Architecture
+### Historical Incident Database
+
+TerraGuard AI maintains historical incident information to provide additional context around mountain and outdoor safety.
+
+Historical information can be used alongside:
+
+- Current terrain conditions
+- Geological activity
+- Weather conditions
+- Hiking sessions
+- Reported hazards
+
+---
+
+### Sunlight Active
+
+TerraGuard AI includes a dedicated **Sunlight Active** interface designed for use in bright outdoor environments.
+
+Instead of simply increasing contrast, Sunlight Active switches the application to a high-visibility light interface.
+
+The mode uses:
+
+- Light application surfaces
+- High-contrast typography
+- Green primary controls
+- Clear warning colors
+- Clear danger indicators
+- Reduced visual clutter
+
+The Sunlight Active interface is applied across the application, including:
+
+- Navigation
+- Tactical Map
+- Vision controls
+- YOLO results
+- Weather
+- Natural hazard alerts
+- Ranger AI
+- Safety Center
+- Session information
+- Forms
+- Modals
+- Mobile navigation
+
+The camera and video preview remain dark to preserve visibility of the captured image.
+
+---
+
+## System Architecture
 
 ```text
                          TerraGuard AI
                               │
-                              ▼
-                    ┌──────────────────┐
-                    │ React Frontend   │
-                    │ Vite + TypeScript│
-                    └────────┬─────────┘
-                             │
-                         /api/*
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Express Backend  │
-                    │ Node.js + Gemini │
-                    └────────┬─────────┘
-                             │
-                       /api/ml/*
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Python ML API    │
-                    │ FastAPI          │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Random Forest    │
-                    │ Risk Model       │
-                    └──────────────────┘
+              ┌───────────────┼────────────────┐
+              │               │                │
+              ▼               ▼                ▼
+     ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
+     │ React Frontend │ │ Express Backend│ │ Python ML API  │
+     │ Vite + TS      │ │ Node.js + TS   │ │ FastAPI        │
+     └───────┬────────┘ └───────┬────────┘ └───────┬────────┘
+             │                  │                  │
+             │                  │                  │
+             │                  ▼                  ▼
+             │             AI / APIs          ML Models
+             │                                YOLO + RF
+             │
+             └───────────────────────────────────────
+                            │
+                            ▼
+                   User Safety Interface
