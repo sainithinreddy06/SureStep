@@ -1,0 +1,16 @@
+{
+  "name": "SureStep — Backcountry Safety System",
+  "short_name": "SureStep",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F7F2",
+  "theme_color": "#F6F7F2",
+  "icons": [
+    {
+      "src": "/surestep-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
