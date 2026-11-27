@@ -12,7 +12,7 @@
 
 ### Phase 1 — Safety and data integrity
 
-- Third checkpoint: camera analysis returns only possible visible features. Ranger failures show an unavailable state, and the incident archive reads without inserting sample data. Existing records need an owner-approved provenance review.
+- Third checkpoint: camera analysis returns only possible visible features. Ranger failures show an unavailable state, and the incident archive reads without inserting sample data. Existing records need an owner-approved provenance review. Verified with [isolated GitHub Actions](https://github.com/sainithinreddy06/SureStep/actions/runs/45966273300): mocked AI and archive handler tests, frontend and backend type checks, the production build, and Chromium outage and retry checks.
 
 - Second checkpoint: label device and demo positions, mark both risk estimates as demo output, require device GPS for local weather and SOS location sharing, and display Open-Meteo model time and cache status. The mocked weather regression, frontend type check, production build, and Chromium checks passed in [the isolated check](https://github.com/sainithinreddy06/SureStep/actions/runs/45964797007).
 
