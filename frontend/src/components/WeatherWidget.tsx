@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { WeatherData } from '../types';
+import { WEATHER_STALE_MS } from '../services/weatherService';
 import { Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, RefreshCw, Sun, Wind, AlertTriangle, Clock } from 'lucide-react';
 
 interface WeatherWidgetProps {
   weather: WeatherData | null;
+  hasDeviceGps: boolean;
+  isSimulatedOffline: boolean;
   isLoading: boolean;
   onRefresh: () => void;
   units: 'metric' | 'imperial';
@@ -11,11 +14,20 @@ interface WeatherWidgetProps {
 
 export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
   weather,
+  hasDeviceGps,
+  isSimulatedOffline,
   isLoading,
   onRefresh,
   units
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    if (!weather) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, [weather]);
 
   const formatTemp = (celsius: number) => {
     if (units === 'imperial') {
@@ -57,10 +69,11 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
   if (!weather) {
     return (
       <div className="rounded-xl border border-stone-800 bg-stone-900/80 p-4 text-xs text-stone-400 flex items-center justify-between">
-        <span>Awaiting mountain meteorological telemetry...</span>
+        <span role="status">{!hasDeviceGps ? 'Connect device GPS to load local weather' : isSimulatedOffline ? 'Weather unavailable in offline simulation' : isLoading ? 'Loading Open-Meteo weather' : 'Open-Meteo weather unavailable'}</span>
         <button
           onClick={onRefresh}
-          disabled={isLoading}
+          disabled={!hasDeviceGps || isSimulatedOffline || isLoading}
+          aria-label="Refresh weather"
           className="p-1.5 bg-stone-800 hover:bg-stone-700 rounded text-stone-200"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -69,7 +82,9 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
     );
   }
 
-  const minutesAgo = Math.max(0, Math.floor((Date.now() - weather.lastUpdated) / 60000));
+  const ageMs = Math.max(0, now - weather.validAt);
+  const isStale = ageMs > WEATHER_STALE_MS;
+  const validTime = new Date(weather.validAt);
 
   return (
     <div className="rounded-xl border border-stone-800 bg-stone-900/90 backdrop-blur-sm p-4 text-stone-100 shadow-sm">
@@ -82,15 +97,15 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
           </span>
           <span className="text-stone-500" aria-hidden="true">·</span>
           <span className="text-xs text-stone-400">
-            {weather.provider}
+            Open-Meteo model
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {weather.isStale && (
+          {(weather.isCached || isStale) && (
             <span className="text-[11px] text-amber-400 flex items-center gap-1 font-medium bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
               <Clock className="w-3 h-3" />
-              Stale Data ({minutesAgo}m ago)
+              {weather.isCached ? (isStale ? 'Stale saved data' : 'Saved data') : 'Stale model data'}
             </span>
           )}
 
@@ -105,6 +120,10 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
           </button>
         </div>
       </div>
+
+      <p className="mb-3 text-xs text-stone-400">
+        Model conditions at <time dateTime={validTime.toISOString()}>{validTime.toLocaleString()}</time>
+      </p>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">

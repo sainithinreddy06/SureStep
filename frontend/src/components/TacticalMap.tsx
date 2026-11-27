@@ -18,7 +18,7 @@ interface TacticalMapProps {
   breadcrumbs: Coordinates[];
   hazards: HazardReport[];
   safePoints: SafeLocation[];
-  isTracking: boolean;
+  hasDeviceGps: boolean;
   isOffline?: boolean;
   onOpenReportModal: () => void;
   onSelectHazard?: (hazard: HazardReport) => void;
@@ -31,7 +31,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   breadcrumbs,
   hazards,
   safePoints,
-  isTracking,
+  hasDeviceGps,
   isOffline = false,
   onOpenReportModal,
   onSelectHazard,
@@ -291,20 +291,20 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2">
         <div className="bg-stone-950/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-stone-800 text-xs flex items-center gap-2.5 shadow-md">
           <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${isTracking ? 'bg-emerald-400 animate-pulse' : 'bg-stone-500'}`} />
+            <span className={`w-2 h-2 rounded-full ${hasDeviceGps ? 'bg-emerald-400 animate-pulse' : 'bg-stone-500'}`} />
             <span className="font-semibold text-stone-100">
-              {currentCoords.latitude.toFixed(4)}°, {currentCoords.longitude.toFixed(4)}°
+              {hasDeviceGps ? 'Device GPS' : 'Demo position'} · {currentCoords.latitude.toFixed(4)}°, {currentCoords.longitude.toFixed(4)}°
             </span>
           </div>
           <span className="text-stone-600" aria-hidden="true">|</span>
           <div className="flex items-center gap-1 text-stone-300 font-mono">
             <Mountain className="w-3.5 h-3.5 text-stone-400" />
-            <span>{formatElevation(currentCoords.altitude || 1650)}</span>
+            <span>{currentCoords.altitude == null ? 'Elevation unavailable' : formatElevation(currentCoords.altitude)}</span>
           </div>
           <span className="text-stone-600" aria-hidden="true">|</span>
           <div className="flex items-center gap-1 text-stone-300 font-mono">
             <Compass className="w-3.5 h-3.5 text-stone-400" />
-            <span>{Math.round(currentCoords.heading || 0)}°</span>
+            <span>{currentCoords.heading == null ? 'Heading unavailable' : `${Math.round(currentCoords.heading)}°`}</span>
           </div>
         </div>
 

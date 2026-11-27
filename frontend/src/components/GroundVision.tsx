@@ -21,6 +21,7 @@ import { Coordinates, HazardReport, HazardSeverity, HazardType } from '../types'
 
 interface GroundVisionProps {
   currentCoords: Coordinates;
+  hasDeviceGps: boolean;
   onLogHazardToMap: (hazard: HazardReport) => void;
   onNavigateToMap: () => void;
 }
@@ -291,6 +292,7 @@ const TERRAIN_PRESETS = [
 
 export const GroundVision: React.FC<GroundVisionProps> = ({
   currentCoords,
+  hasDeviceGps,
   onLogHazardToMap,
   onNavigateToMap
 }) => {
@@ -753,7 +755,7 @@ export const GroundVision: React.FC<GroundVisionProps> = ({
           </div>
 
           <div className="text-[11px] text-stone-400">
-            Coordinates: <span className="font-mono text-stone-200">{currentCoords.latitude.toFixed(4)}°, {currentCoords.longitude.toFixed(4)}°</span>
+            {hasDeviceGps ? 'Device GPS' : 'Demo coordinates'} <span className="font-mono text-stone-200">{currentCoords.latitude.toFixed(4)}°, {currentCoords.longitude.toFixed(4)}°</span>
           </div>
         </div>
       </div>
