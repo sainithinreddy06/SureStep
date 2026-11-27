@@ -1,0 +1,89 @@
+name: Verify Phase 1 AI and incident integrity
+on:
+  push:
+    branches: [codex/verify-phase-1-ai-integrity]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: Test isolated AI and archive handlers
+        run: node --test tests/phase1-data-integrity.test.mjs frontend/tests/weatherService.test.mjs
+      - name: Type check backend
+        working-directory: backend
+        run: |
+          npm ci
+          npm run lint
+      - name: Type check and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+      - name: Verify frontend Camera and Ranger failures and recovery in Chromium
+        working-directory: frontend
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 > /tmp/surestep-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          try {
+            const base = 'http://127.0.0.1:4173';
+            const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+            let cameraAvailable = false;
+            let rangerAvailable = false;
+            await page.route('**/*', async route => {
+              const url = new URL(route.request().url());
+              if (url.origin !== base) return route.abort();
+              if (url.pathname === '/api/analyze-terrain-image') {
+                return cameraAvailable ? route.fulfill({ json: { features: ['Rock'] } }) : route.fulfill({ status: 503, json: {} });
+              }
+              if (url.pathname === '/api/ranger-chat') {
+                const payload = route.request().postDataJSON();
+                assert.deepEqual(payload.context, {});
+                return rangerAvailable ? route.fulfill({ json: { reply: 'Check the trail map before leaving.' } }) : route.fulfill({ status: 503, json: {} });
+              }
+              if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 503, json: {} });
+              return route.continue();
+            });
+            await page.goto(base);
+            await page.getByRole('button', { name: /Launch Whole Application/ }).click();
+            await page.getByRole('heading', { name: 'Ground Vision', exact: true }).waitFor();
+            await page.locator('input[type=file]').setInputFiles({
+              name: 'synthetic.png', mimeType: 'image/png',
+              buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jfH8AAAAASUVORK5CYII=', 'base64'),
+            });
+            await page.getByText('Terrain image analysis unavailable. Try again later.', { exact: true }).waitFor();
+            assert.equal(await page.getByText('Possible features in the photo', { exact: true }).count(), 0);
+            cameraAvailable = true;
+            await page.getByRole('button', { name: 'Retry Analysis' }).click();
+            await page.getByText('Rock', { exact: true }).waitFor();
+            await page.getByTitle('Open Ranger AI Copilot').click();
+            const question = page.getByRole('textbox', { name: 'Ask Ranger AI' });
+            await question.fill('What should I pack?');
+            await page.getByRole('button', { name: 'Send question' }).click();
+            await page.getByText('Ranger AI unavailable. Try sending your question again.', { exact: true }).waitFor();
+            assert.equal(await question.inputValue(), 'What should I pack?');
+            rangerAvailable = true;
+            await page.getByRole('button', { name: 'Send question' }).click();
+            await page.getByText('Check the trail map before leaving.', { exact: true }).waitFor();
+            console.log('Verified Camera and Ranger outages and retry recovery with mock responses.');
+          } finally {
+            await browser.close();
+          }
+          JS
