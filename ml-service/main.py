@@ -3,7 +3,7 @@ from typing import Literal
 
 import joblib
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -48,15 +48,15 @@ TERRAIN_ENCODING = {
 }
 
 class RiskRequest(BaseModel):
-    elevation: float = Field(default=1800, ge=-500, le=10000)
-    slope: float = Field(default=12, ge=0, le=90)
-    temperature: float = Field(default=15, ge=-50, le=60)
-    humidity: float = Field(default=55, ge=0, le=100)
-    rainfall: float = Field(default=0, ge=0, le=500)
-    wind_speed: float = Field(default=15, ge=0, le=250)
-    earthquake_activity: float = Field(default=0, ge=0, le=1)
-    historical_incidents: float = Field(default=0, ge=0, le=100)
-    terrain_type: str = 'mixed'
+    elevation: float = Field(ge=-500, le=10000)
+    slope: float = Field(ge=0, le=90)
+    temperature: float = Field(ge=-50, le=60)
+    humidity: float = Field(ge=0, le=100)
+    rainfall: float = Field(ge=0, le=500)
+    wind_speed: float = Field(ge=0, le=250)
+    earthquake_activity: float = Field(ge=0, le=1)
+    historical_incidents: float = Field(ge=0, le=100)
+    terrain_type: Literal['forest', 'mixed', 'rocky', 'scree', 'snow']
 
 class RiskResponse(BaseModel):
     risk_score: int
@@ -69,28 +69,6 @@ class RiskResponse(BaseModel):
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
-
-
-def fallback_prediction(payload: RiskRequest) -> float:
-    terrain_score = {
-        'forest': 15,
-        'mixed': 30,
-        'rocky': 55,
-        'scree': 72,
-        'snow': 78,
-    }.get(payload.terrain_type.lower(), 30)
-
-    score = (
-        clamp(payload.slope / 35 * 100, 0, 100) * 0.24
-        + clamp((payload.rainfall / 25) * 100, 0, 100) * 0.16
-        + clamp((payload.wind_speed / 60) * 100, 0, 100) * 0.12
-        + clamp(payload.humidity, 0, 100) * 0.08
-        + terrain_score * 0.16
-        + clamp(payload.elevation / 3500 * 100, 0, 100) * 0.08
-        + clamp(payload.earthquake_activity * 100, 0, 100) * 0.10
-        + clamp(payload.historical_incidents / 10 * 100, 0, 100) * 0.06
-    )
-    return clamp(score, 0, 100)
 
 
 def build_features(payload: RiskRequest):
@@ -139,6 +117,8 @@ def get_factors(payload: RiskRequest):
 
 @app.get('/health')
 def health():
+    if model is None:
+        raise HTTPException(status_code=503, detail='Terrain model unavailable')
     return {
         'status': 'healthy',
         'model_loaded': model is not None,
@@ -149,21 +129,23 @@ def health():
 
 @app.post('/predict-risk', response_model=RiskResponse)
 def predict_risk(payload: RiskRequest):
-    if model is not None:
-        prediction = float(model.predict(build_features(payload))[0])
-        score = clamp(prediction, 0, 100)
-        tree_predictions = np.array([tree.predict(build_features(payload))[0] for tree in model.estimators_])
-        uncertainty = float(np.std(tree_predictions))
-        confidence = int(round(clamp(96 - uncertainty * 2.5, 65, 96)))
-    else:
-        score = fallback_prediction(payload)
-        confidence = 68
+    if model is None:
+        raise HTTPException(status_code=503, detail='Terrain model unavailable')
+
+    features = build_features(payload)
+    prediction = float(model.predict(features)[0])
+    tree_predictions = np.array([tree.predict(features)[0] for tree in model.estimators_])
+    if not np.isfinite(prediction) or not np.all(np.isfinite(tree_predictions)):
+        raise HTTPException(status_code=503, detail='Terrain model unavailable')
+    score = clamp(prediction, 0, 100)
+    uncertainty = float(np.std(tree_predictions))
+    confidence = int(round(clamp(96 - uncertainty * 2.5, 65, 96)))
 
     return RiskResponse(
         risk_score=round(score),
         risk_level=get_level(score),
         confidence=confidence,
         top_factors=get_factors(payload),
-        model='Random Forest' if model is not None else 'Rule-based fallback',
+        model='Random Forest',
         model_version='TG-RISK-1.0',
     )

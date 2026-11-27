@@ -31,7 +31,9 @@ app.post('/api/ml/predict-risk', async (req, res) => {
     });
 
     const data = await response.json();
-    res.status(response.ok ? 200 : 502).json(data);
+    if (response.status === 422) return res.status(422).json({ error: 'Invalid terrain inputs' });
+    if (!response.ok) return res.status(response.status === 503 ? 503 : 502).json({ error: 'Terrain model unavailable' });
+    res.json(data);
   } catch (error: any) {
     console.warn('ML service proxy warning:', error?.message || error);
     res.status(503).json({

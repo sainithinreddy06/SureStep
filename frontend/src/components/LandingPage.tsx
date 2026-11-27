@@ -12,6 +12,7 @@ import { MovingBackcountryBackground } from './MovingBackcountryBackground';
 import surestepLogo from '../assets/images/surestep-logo.png';
 
 interface LandingPageProps {
+  onUseDeviceGps: () => void;
   onLaunchHUD: () => void;
   onOpenMap: () => void;
   onOpenChat: () => void;
@@ -22,6 +23,7 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onLaunchHUD,
+  onUseDeviceGps,
   onOpenMap,
   onOpenRisk,
   activeTrail
@@ -70,16 +72,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               className="py-4 px-8 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-2xl shadow-emerald-950/80 flex items-center gap-2.5 uppercase tracking-wider group"
             >
               <Eye className="w-5 h-5 text-white" />
-              <span>Launch Whole Application (Camera HUD)</span>
+              <span>Explore Demo</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
 
             <button
-              onClick={onOpenMap}
+              onClick={onUseDeviceGps}
               className="py-4 px-6 bg-stone-900 hover:bg-stone-800 border border-stone-800 text-stone-200 font-bold rounded-2xl text-sm transition-all flex items-center gap-2"
             >
               <Map className="w-4 h-4 text-amber-400" />
-              <span>Open Tactical Map</span>
+              <span>Use Device GPS</span>
             </button>
           </div>
         </div>
@@ -101,7 +103,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Capture or upload a photo to identify possible visible surface features.
             </p>
             <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 pt-1">
-              <span>Launch Ground HUD</span>
+              <span>Open Demo Camera View</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>
@@ -118,10 +120,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Tactical Topo & Sat Map
             </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              High-contrast contours, live satellite GPS breadcrumb tracking, ranger refuge shelters, and offline emergency coordinates.
+              Explore sample trail waypoints or connect device GPS to track your position.
             </p>
             <div className="text-[11px] font-bold text-amber-400 flex items-center gap-1 pt-1">
-              <span>Open Tactical Map</span>
+              <span>Explore Demo Map</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>
@@ -138,10 +140,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Seismic & Geological Alerts
             </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Live USGS earthquake feed calculates distance from your position and sounds instant audible warnings for talus slides and cliff tremors.
+              Connect device GPS to check USGS earthquake reports near your location.
             </p>
             <div className="text-[11px] font-bold text-sky-400 flex items-center gap-1 pt-1">
-              <span>View Live Telemetry</span>
+              <span>Explore Demo Risk Inputs</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>
@@ -161,7 +163,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Browse unverified incident reports associated with selected trails.
             </p>
             <div className="text-[11px] font-bold text-purple-400 flex items-center gap-1 pt-1">
-              <span>Browse Location Archive</span>
+              <span>Explore Demo Trail Archive</span>
               <ArrowRight className="w-3 h-3" />
             </div>
           </div>

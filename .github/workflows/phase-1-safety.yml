@@ -1,0 +1,118 @@
+name: Phase 1 safety regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check missing model and inputs
+        working-directory: ml-service
+        run: |
+          python -m pip install -r requirements.txt httpx==0.28.1
+          python -m unittest test_phase1
+      - name: Check backend types
+        working-directory: backend
+        run: |
+          npm ci
+          npm run lint
+      - name: Run regression tests, type check and build
+        run: |
+          node --test tests/phase1-data-integrity.test.mjs frontend/tests/weatherService.test.mjs
+          cd frontend
+          npm ci
+          npm run lint
+          npm run build
+      - name: Check emergency sharing in Chromium
+        working-directory: frontend
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 > /tmp/surestep-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          try {
+            const base = 'http://127.0.0.1:4173';
+            const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+            await page.addInitScript(() => {
+              window.testShare = { calls: [], copied: [], mode: 'cancel' };
+              navigator.geolocation.watchPosition = (success) => {
+                setTimeout(() => success({ coords: { latitude: 0, longitude: 0, altitude: null, accuracy: 8, heading: null }, timestamp: 1800000000000 }), 0);
+                return 1;
+              };
+              navigator.geolocation.clearWatch = () => {};
+              navigator.share = async data => {
+                window.testShare.calls.push(data.text);
+                if (window.testShare.mode === 'cancel') throw new DOMException('Cancelled', 'AbortError');
+              };
+              Object.defineProperty(navigator, 'clipboard', { value: {
+                writeText: async text => {
+                  if (window.testShare.clipboardBlocked) throw new Error('blocked');
+                  window.testShare.copied.push(text);
+                }
+              } });
+            });
+            await page.route('**/*', route => {
+              const url = new URL(route.request().url());
+              if (url.origin !== base) return route.abort();
+              if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 503, json: {} });
+              return route.continue();
+            });
+            await page.goto(base);
+            await page.getByRole('button', { name: 'Use Device GPS', exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Explore Demo', exact: true }).click();
+            await page.getByText('Demo mode · Simulated position', { exact: true }).waitFor();
+            await page.getByText('Risk & Incidents', { exact: true }).click();
+            await page.getByText(/Current weather inputs are unavailable/).waitFor();
+            await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+            await page.getByText('Offline Connectivity', { exact: true }).waitFor();
+            assert.doesNotMatch(await page.locator('body').innerText(), /beacon armed|Live GPS & coordinates active/i);
+            await page.evaluate(() => window.dispatchEvent(new Event('online')));
+            await page.getByText('Safety & SOS', { exact: true }).click();
+            const prepare = page.getByRole('button', { name: 'Prepare Emergency Message' });
+            await prepare.waitFor();
+            assert.equal(await prepare.isDisabled(), true);
+            assert.equal(await page.locator('a[href^="tel:"]').count(), 0);
+            await page.getByText('Tactical Map', { exact: true }).first().click();
+            await page.getByRole('button', { name: 'Connect Device GPS' }).click();
+            await page.getByText('Device GPS active', { exact: true }).waitFor();
+            await page.getByText('Safety & SOS', { exact: true }).click();
+            await prepare.click();
+            const payload = await page.getByRole('textbox', { name: 'Prepared emergency message' }).inputValue();
+            assert.match(payload, /Device coordinates: 0\.000000, 0\.000000/);
+            assert.ok(payload.includes(new Date(1800000000000).toISOString()));
+            assert.deepEqual(await page.evaluate(() => window.testShare.calls), []);
+            await page.getByRole('button', { name: 'Share Message', exact: true }).click();
+            await page.getByText('Sharing cancelled.', { exact: true }).waitFor();
+            assert.deepEqual(await page.evaluate(() => window.testShare.copied), []);
+            await page.evaluate(() => { window.testShare.mode = 'success'; });
+            await page.getByRole('button', { name: 'Share Message', exact: true }).click();
+            await page.getByText('Device sharing completed. Delivery is unconfirmed.', { exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Copy Message', exact: true }).click();
+            await page.getByText('Message copied to clipboard.', { exact: true }).waitFor();
+            assert.deepEqual(await page.evaluate(() => window.testShare.copied), [payload]);
+            await page.evaluate(() => { window.testShare.clipboardBlocked = true; });
+            await page.getByRole('button', { name: 'Copy Message', exact: true }).click();
+            await page.getByText('Clipboard unavailable. Select and copy the message text manually.', { exact: true }).waitFor();
+          } finally {
+            await browser.close();
+          }
+          JS

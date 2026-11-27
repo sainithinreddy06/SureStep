@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WifiOff, AlertTriangle, RefreshCw, CheckCircle2, ChevronRight, X, ShieldCheck } from 'lucide-react';
+import { WifiOff, RefreshCw, X } from 'lucide-react';
 
 interface OfflineConnectivityBannerProps {
   isOffline: boolean;
@@ -16,16 +16,8 @@ export const OfflineConnectivityBanner: React.FC<OfflineConnectivityBannerProps>
 }) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const [justReconnected, setJustReconnected] = useState(false);
-
-  // If user went from offline to online, show brief success confirmation
   useEffect(() => {
-    if (!isOffline) {
-      setDismissed(false);
-      setJustReconnected(true);
-      const timer = setTimeout(() => setJustReconnected(false), 3500);
-      return () => clearTimeout(timer);
-    }
+    if (!isOffline) setDismissed(false);
   }, [isOffline]);
 
   const handleRetry = async () => {
@@ -36,29 +28,6 @@ export const OfflineConnectivityBanner: React.FC<OfflineConnectivityBannerProps>
       setTimeout(() => setIsRetrying(false), 800);
     }
   };
-
-  if (justReconnected) {
-    return (
-      <aside
-        aria-live="polite"
-        className="bg-emerald-950/80 border border-emerald-600/60 p-3 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-200 shadow-md transition-all animate-in fade-in"
-      >
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>
-            <strong>Connection Restored:</strong> Online map tile streaming and live meteorological telemetry resumed.
-          </span>
-        </div>
-        <button
-          onClick={() => setJustReconnected(false)}
-          className="p-1 text-emerald-400 hover:text-emerald-100 transition-colors"
-          aria-label="Dismiss reconnected notice"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </aside>
-    );
-  }
 
   if (!isOffline || dismissed) {
     return null;
@@ -90,24 +59,10 @@ export const OfflineConnectivityBanner: React.FC<OfflineConnectivityBannerProps>
             </div>
 
             <p className="text-xs text-stone-200 leading-relaxed">
-              <strong className="text-amber-200">Map tile rendering is currently limited or unavailable.</strong> Only previously cached terrain areas will render smoothly; new map zooms and un-cached tiles cannot be downloaded until connectivity returns.
+              New map tiles and provider updates may be unavailable while offline.
             </p>
 
-            {/* Offline Safeguards checklist */}
-            <div className="pt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-stone-300">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Live GPS & coordinates active
-              </span>
-              <span className="flex items-center gap-1 text-emerald-400">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Breadcrumb tracking recorded
-              </span>
-              <span className="flex items-center gap-1 text-emerald-400">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Offline SOS beacon armed
-              </span>
-            </div>
+
           </div>
         </div>
 
@@ -124,9 +79,7 @@ export const OfflineConnectivityBanner: React.FC<OfflineConnectivityBannerProps>
 
       {/* Action Footer */}
       <div className="mt-3.5 pt-3 border-t border-stone-800/80 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="text-[11px] text-stone-400">
-          Last weather & terrain baseline preserved locally.
-        </div>
+
 
         <div className="flex items-center gap-2">
           {onToggleSimulateOffline && (

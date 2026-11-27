@@ -71,7 +71,7 @@ export const TerrainMLCard: React.FC<TerrainMLCardProps> = ({ prediction, loadin
 
           <div>
             <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <span className="text-stone-400">Model confidence</span>
+              <span className="text-stone-400">Tree agreement (uncalibrated)</span>
               <span className="font-mono text-stone-200">{prediction.confidence}%</span>
             </div>
             <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">

@@ -150,7 +150,7 @@ ${pointsXml}
           <div className="p-2.5 bg-stone-950/70 border border-stone-800/80 rounded-lg">
             <div className="text-stone-400 text-[11px] flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
-              Max Risk
+              Peak demo risk estimate
             </div>
             <div className="text-base font-bold font-mono text-stone-100 mt-0.5">
               {currentSession ? getRiskBadge(currentSession.maxRiskLevel) : 'None'}
@@ -244,7 +244,7 @@ ${pointsXml}
                       <span>·</span>
                       <span>+{formatElevation(session.elevationGainM)}</span>
                       <span>·</span>
-                      <span>Risk: {getRiskBadge(session.maxRiskLevel)}</span>
+                      <span>Demo risk estimate: {getRiskBadge(session.maxRiskLevel)}</span>
                     </div>
                   </div>
 

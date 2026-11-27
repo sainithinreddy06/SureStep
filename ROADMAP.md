@@ -1,6 +1,6 @@
 # TerraGuard AI (SureStep) — Engineering Roadmap
 
-**Status as of 2026-11-27:** Phase 0 baseline is documented in `AUDIT.md`; it is not a go-live sign-off. Phase 1 implementation is in progress on a feature branch. Work stays on a dedicated feature branch, never directly on `main`.
+**Status as of 2026-11-27:** Phase 0 baseline is documented in `AUDIT.md`; it is not a go-live sign-off. Phase 1 closeout is on a consolidated review branch. Work stays on a dedicated feature branch, never directly on `main`.
 
 ## Phase gates
 
@@ -11,6 +11,8 @@
 - **Exit:** every finding has an owner, evidence, remediation and verification test; no production data is inspected or changed without approval.
 
 ### Phase 1 — Safety and data integrity
+
+- Closeout: explicit demo/device entry, truthful offline status, removal of decorative telemetry and verification claims, and unavailable states for missing weather, inputs or model. Phase 2 covers access controls and trusted moderation.
 
 - Tactical Map labels example waypoints in its legend, summary and popups. A sample waypoint no longer implies a nearby verified refuge or emergency contact.
 

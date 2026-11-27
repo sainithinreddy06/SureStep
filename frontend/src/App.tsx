@@ -235,6 +235,13 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!recentWeather) {
+      setMlPrediction(null);
+      setMlLoading(false);
+      setMlError('Current weather inputs are unavailable');
+      return;
+    }
+
     const runTerrainModel = async () => {
       setMlLoading(true);
       setMlError(null);
@@ -249,12 +256,12 @@ export default function App() {
               : 'forest';
 
         const prediction = await predictTerrainRisk({
-          elevation: Number(currentCoords.altitude || selectedTrail.baseElevationM),
+          elevation: Number(currentCoords.altitude ?? selectedTrail.baseElevationM),
           slope: currentSlope,
-          temperature: recentWeather?.temperature ?? 15,
-          humidity: recentWeather?.humidity ?? 55,
-          rainfall: recentWeather?.precipitation ?? 0,
-          wind_speed: recentWeather?.windSpeed ?? 15,
+          temperature: recentWeather.temperature,
+          humidity: recentWeather.humidity,
+          rainfall: recentWeather.precipitation,
+          wind_speed: recentWeather.windSpeed,
           earthquake_activity: Math.min(1, allHazards.filter((h) => h.type === 'rockfall').length / 10),
           historical_incidents: Math.min(12, selectedTrail.knownHazards.length),
           terrain_type: terrainType,
@@ -430,8 +437,8 @@ export default function App() {
       durationSeconds: 0,
       distanceMeters: 0,
       elevationGainM: 0,
-      currentElevationM: currentCoords.altitude || selectedTrail.baseElevationM,
-      maxElevationM: currentCoords.altitude || selectedTrail.baseElevationM,
+      currentElevationM: currentCoords.altitude ?? selectedTrail.baseElevationM,
+      maxElevationM: currentCoords.altitude ?? selectedTrail.baseElevationM,
       avgSpeedKmh: 3.6,
       maxRiskLevel: riskAssessment?.level || 'low',
       breadcrumbs: [currentCoords]
@@ -494,6 +501,11 @@ export default function App() {
   if (showLandingPage) {
     return (
       <LandingPage
+        onUseDeviceGps={() => {
+          setShowLandingPage(false);
+          setActiveTab('map');
+          if (!gpsCoords && gpsStatus !== 'requesting') startBrowserGps();
+        }}
         onLaunchHUD={() => {
           setShowLandingPage(false);
           setActiveTab('vision');
