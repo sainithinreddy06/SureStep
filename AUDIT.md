@@ -187,3 +187,8 @@ Severity: **P0** = immediate safety/privacy stop-use risk; **P1** = high-priorit
 ## Data-safety note
 
 The audit did not intentionally write production data, submit a hazard, start a session, or invoke paid AI. However, opening the production Risk & Weather view can trigger the automatic Firestore sample-seed path described in DB-02. Treat its outcome as unknown. Do not attempt cleanup or further production reads until the owner authorizes a safe, backed-up review.
+
+## Phase 1 follow-up
+
+- SAF-02 earthquake path addressed on the Phase 1 branch. Invalid coordinates return 400. Upstream failures return 503 without fabricated events. The monitor requires device GPS and distinguishes an unavailable feed from a successful empty feed.
+- Seven synthetic checks passed against the backend handler. Full frontend build and browser verification are outstanding. Camera and Ranger fallbacks, other demo signals, history seeding, and SOS remain open. The production deployment was not changed.

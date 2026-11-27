@@ -486,7 +486,7 @@ export default function App() {
       speed: 0,
       timestamp: Date.now()
     };
-    setCurrentCoords(newCoords);
+    if (gpsStatus !== 'tracking') setCurrentCoords(newCoords);
     setBreadcrumbs([newCoords]);
     loadWeather(newCoords);
   };
@@ -547,11 +547,7 @@ export default function App() {
           onToggleSimulateOffline={() => setIsSimulatedOffline(v => !v)}
         />
 
-          {/* Real-Time Natural & Geological Hazards Monitor (Earthquakes / Landslides / Flash Floods) */}
-          <NaturalHazardAlerts
-            currentCoords={currentCoords}
-            elevationMeters={currentCoords.altitude || selectedTrail.baseElevationM}
-          />
+          <NaturalHazardAlerts currentCoords={gpsStatus === 'tracking' ? currentCoords : null} />
 
         {/* GPS Permission Warning Banner if Denied */}
         {gpsDeniedAlert && (

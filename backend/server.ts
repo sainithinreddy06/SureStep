@@ -57,23 +57,26 @@ if (apiKey) {
 
 // 1. Natural Hazards API (Live USGS Earthquakes & Geological Alerts)
 app.get('/api/natural-hazards', async (req, res) => {
-  const lat = parseFloat(req.query.lat as string) || 46.7865;
-  const lng = parseFloat(req.query.lng as string) || -121.7358;
+  const { lat: latitude, lng: longitude } = req.query;
+  const lat = typeof latitude === 'string' && latitude.trim() ? Number(latitude) : NaN;
+  const lng = typeof longitude === 'string' && longitude.trim() ? Number(longitude) : NaN;
+  if (!Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lng) || Math.abs(lng) > 180) {
+    return res.status(400).json({ error: 'Valid latitude and longitude are required' });
+  }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
     const usgsRes = await fetch(
       'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
-      { signal: controller.signal }
+      { signal: AbortSignal.timeout(5000) }
     );
-    clearTimeout(timeout);
 
     if (!usgsRes.ok) throw new Error('USGS fetch failed');
     const data = await usgsRes.json();
 
+    if (!Array.isArray(data.features)) throw new Error('Invalid USGS feed');
+
     // Calculate distance to each seismic event
-    const events = (data.features || [])
+    const events = data.features
       .map((f: any) => {
         const [eLng, eLat, depth] = f.geometry.coordinates;
         const distKm = getDistanceKm(lat, lng, eLat, eLng);
@@ -97,23 +100,7 @@ app.get('/api/natural-hazards', async (req, res) => {
     res.json({ success: true, events });
   } catch (err: any) {
     console.warn('Natural hazards fetch warning:', err.message);
-    res.json({
-      success: true,
-      events: [
-        {
-          id: 'sim-eq-1',
-          title: 'M3.4 Earthquake - 18km ESE of Ashford, WA',
-          mag: 3.4,
-          place: '18km ESE of Ashford, WA',
-          time: Date.now() - 1000 * 60 * 25,
-          depthKm: 8.2,
-          distanceKm: 24,
-          type: 'earthquake',
-          severity: 'high',
-          alert: true
-        }
-      ]
-    });
+    res.status(503).json({ error: 'USGS earthquake data is unavailable' });
   }
 });
 

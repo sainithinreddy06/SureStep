@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AlertOctagon, Activity, Mountain, CloudLightning, Bell, Volume2, VolumeX, X, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Activity, Volume2, VolumeX, X, ShieldAlert } from 'lucide-react';
 import { Coordinates } from '../types';
 
 interface GeologicalEvent {
@@ -16,21 +16,27 @@ interface GeologicalEvent {
 }
 
 interface NaturalHazardAlertsProps {
-  currentCoords: Coordinates;
-  elevationMeters: number;
+  currentCoords: Coordinates | null;
 }
 
 export const NaturalHazardAlerts: React.FC<NaturalHazardAlertsProps> = ({
-  currentCoords,
-  elevationMeters
+  currentCoords
 }) => {
-  const [events, setEvents] = useState<GeologicalEvent[]>([]);
-  const [activeAlert, setActiveAlert] = useState<GeologicalEvent | null>(null);
+  const [events, setEvents] = useState<GeologicalEvent[] | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState<Record<string, boolean>>({});
 
+  const lastAnnouncedId = useRef<string | null>(null);
+  const latitude = currentCoords?.latitude;
+  const longitude = currentCoords?.longitude;
+  const activeAlert = currentCoords
+    ? events?.find(event => event.alert && !dismissedAlerts[event.id])
+    : undefined;
+
   // Sound generator using Web Audio API
-  const playAlertTone = () => {
+  useEffect(() => {
+    if (!activeAlert || activeAlert.id === lastAnnouncedId.current) return;
+    lastAnnouncedId.current = activeAlert.id;
     if (!soundEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -47,62 +53,44 @@ export const NaturalHazardAlerts: React.FC<NaturalHazardAlertsProps> = ({
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
+      osc.onended = () => { void audioCtx.close().catch(() => {}); };
       osc.stop(audioCtx.currentTime + 0.4);
     } catch {
       // AudioContext unavailable/blocked by autoplay policy
     }
-  };
-
-  // Poll natural hazards endpoint
-  const checkHazards = async () => {
-    try {
-      const res = await fetch(`/api/natural-hazards?lat=${currentCoords.latitude}&lng=${currentCoords.longitude}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.events && data.events.length > 0) {
-          setEvents(data.events);
-          const urgent = data.events.find((e: GeologicalEvent) => e.alert && !dismissedAlerts[e.id]);
-          if (urgent) {
-            setActiveAlert(urgent);
-            playAlertTone();
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Natural hazards fetch skipped:', err);
-    }
-  };
+  }, [activeAlert, soundEnabled]);
 
   useEffect(() => {
-    checkHazards();
-    const interval = setInterval(checkHazards, 45000); // Check every 45s
-    return () => clearInterval(interval);
-  }, [currentCoords.latitude, currentCoords.longitude]);
+    if (latitude === undefined || longitude === undefined) {
+      setEvents(null);
+      return;
+    }
 
-  // Simulate an earthquake/landslide trigger for instant field verification
-  const handleSimulateEarthquake = () => {
-    const simEvent: GeologicalEvent = {
-      id: `sim-${Date.now()}`,
-      title: 'M3.9 Seismic Shaking - 14km NW of Summit Ridge',
-      mag: 3.9,
-      place: '14km NW of Summit Ridge',
-      time: Date.now(),
-      depthKm: 6.4,
-      distanceKm: 14,
-      type: 'earthquake',
-      severity: 'critical',
-      alert: true
+    const controller = new AbortController();
+    const checkHazards = async () => {
+      try {
+        const res = await fetch(`/api/natural-hazards?lat=${latitude}&lng=${longitude}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error('USGS earthquake data is unavailable');
+        const data = await res.json();
+        if (!Array.isArray(data.events)) throw new Error('Invalid earthquake data');
+        if (!controller.signal.aborted) setEvents(data.events);
+      } catch {
+        if (!controller.signal.aborted) setEvents(null);
+      }
     };
-    setEvents(prev => [simEvent, ...prev]);
-    setActiveAlert(simEvent);
-    playAlertTone();
-  };
+
+    void checkHazards();
+    const interval = setInterval(checkHazards, 45000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [latitude, longitude]);
 
   const handleDismiss = (id: string) => {
     setDismissedAlerts(prev => ({ ...prev, [id]: true }));
-    if (activeAlert?.id === id) {
-      setActiveAlert(null);
-    }
   };
 
   if (!activeAlert) {
@@ -110,21 +98,12 @@ export const NaturalHazardAlerts: React.FC<NaturalHazardAlertsProps> = ({
       <div className="flex items-center justify-between bg-stone-950/80 border border-stone-800/80 px-3 py-1.5 rounded-xl text-xs text-stone-300">
         <div className="flex items-center gap-2">
           <Activity className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="font-semibold text-stone-200">USGS Seismic & Geological Monitor:</span>
+          <span className="font-semibold text-stone-200">USGS earthquake monitor</span>
           <span className="text-stone-400">
-            {events.length > 0 ? `${events[0].title} (${events[0].distanceKm}km away)` : 'No active geological tremors within 100km'}
+            {!currentCoords ? 'Waiting for device GPS' : events === null ? 'Earthquake data unavailable' : events[0] ? `${events[0].title} (${events[0].distanceKm} km away)` : 'No earthquakes reported within 500 km in the past day'}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSimulateEarthquake}
-            className="text-[10px] text-amber-400 hover:text-amber-300 underline font-mono"
-            title="Simulate a nearby earthquake/landslide alert"
-          >
-            Test Tremor Alert
-          </button>
-        </div>
       </div>
     );
   }
@@ -144,7 +123,7 @@ export const NaturalHazardAlerts: React.FC<NaturalHazardAlertsProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 bg-red-600 text-white rounded text-[10px] font-extrabold uppercase tracking-widest">
-                GEOLOGICAL & SEISMIC ALERT
+                USGS EARTHQUAKE ALERT
               </span>
               <span className="font-bold text-sm text-red-200 font-mono">
                 Magnitude {activeAlert.mag} · {activeAlert.distanceKm}km Away
@@ -158,14 +137,7 @@ export const NaturalHazardAlerts: React.FC<NaturalHazardAlertsProps> = ({
               {activeAlert.title}
             </div>
 
-            {/* Tactical Mountain Ranger Warning */}
-            <div className="p-2.5 bg-stone-950/80 border border-red-800/80 rounded-lg text-xs leading-relaxed text-amber-200 mt-2">
-              <strong className="text-red-300 block mb-0.5 uppercase tracking-wider text-[10px]">
-                Immediate Mountain Hazard: High Rockfall & Talus Slide Risk
-              </strong>
-              Seismic tremors trigger violent rock exfoliations and talus slides on slopes above 20°.
-              <strong> Move immediately away from vertical cliff bands, overhangs, and couloirs.</strong> Avoid resting at the base of crumbly bluffs.
-            </div>
+            <p className="text-xs text-stone-300">USGS earthquake feed · Local trail conditions are unknown.</p>
           </div>
         </div>
 

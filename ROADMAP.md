@@ -1,6 +1,6 @@
 # TerraGuard AI (SureStep) — Engineering Roadmap
 
-**Status as of 2026-11-27:** Phase 0 baseline is documented in `AUDIT.md`; it is not a go-live sign-off. Source implementation is paused until the required Ponytail skill instructions are available. Work stays on a dedicated feature branch, never directly on `main`.
+**Status as of 2026-11-27:** Phase 0 baseline is documented in `AUDIT.md`; it is not a go-live sign-off. Phase 1 implementation is in progress on a feature branch. Work stays on a dedicated feature branch, never directly on `main`.
 
 ## Phase gates
 
@@ -11,6 +11,8 @@
 - **Exit:** every finding has an owner, evidence, remediation and verification test; no production data is inspected or changed without approval.
 
 ### Phase 1 — Safety and data integrity
+
+- First checkpoint: the USGS earthquake monitor requires device GPS, distinguishes an unavailable feed from an empty feed, and no longer shows fabricated earthquakes. Seven synthetic backend checks passed. Frontend build and browser verification are outstanding.
 
 - Make demo mode explicit; stop simulated GPS/weather/risk from appearing live.
 - Remove fabricated hazard events, camera classifications and fallback safety instructions.
@@ -86,7 +88,7 @@
 
 ## Current blockers
 
-1. **Ponytail instructions unavailable:** user explicitly requires this skill throughout; do not invent its contents. Enable/provide the actual skill before source-code phases.
+1. **Ponytail instructions located:** the Phase 1 worker loaded and applied the required instructions.
 2. **Production Firestore seed outcome unknown:** verify only with owner authorization and a backup; do not clean or alter records as part of this audit.
 3. **Vercel association mismatch:** CLI inspection and chat-linked project IDs differ; confirm intended project before production work.
 4. **Full-history secret scan outstanding:** current checkout is shallow and scanner binaries were unavailable.
