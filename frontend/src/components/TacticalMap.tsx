@@ -212,16 +212,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       });
 
       const marker = L.marker([sp.coordinates.latitude, sp.coordinates.longitude], { icon });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; color: #f5f5f4;">
-          <div style="color: #38bdf8; font-size: 10px; font-weight: 700; text-transform: uppercase;">
-            ${sp.type.replace('_', ' ')}
-          </div>
-          <div style="font-weight: 600; font-size: 13px; margin: 2px 0 4px 0;">${sp.name}</div>
-          ${sp.emergencyContact ? `<div style="font-size: 11px; color: #38bdf8; margin-bottom: 4px;">Call: ${sp.emergencyContact}</div>` : ''}
-          <div style="font-size: 10px; color: #d6d3d1;">Amenities: ${sp.amenities.join(', ')}</div>
-        </div>
-      `);
+      const popup = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = sp.name;
+      const type = document.createElement('div');
+      type.textContent = sp.type.replace(/_/g, ' ');
+      const amenities = document.createElement('div');
+      amenities.textContent = `Listed amenities: ${sp.amenities.join(', ')}`;
+      const source = document.createElement('small');
+      source.textContent = 'Example trail waypoint · Unverified';
+      popup.append(name, type, amenities, source);
+      marker.bindPopup(popup);
 
       safeGroupRef.current?.addLayer(marker);
     });
@@ -386,14 +387,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </span>
           <span className="flex items-center gap-1.5 text-sky-400">
             <Shield className="w-3 h-3 text-sky-400" />
-            <span>{safePoints.length} Refuges</span>
+            <span>{safePoints.length} example waypoints</span>
           </span>
         </div>
 
         {safePoints[0] && (
           <div className="pointer-events-auto bg-stone-950/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-sky-800/60 text-[11px] text-sky-200 flex items-center gap-2">
             <Shield className="w-3.5 h-3.5 text-sky-400" />
-            <span>Nearest Refuge: <strong>{safePoints[0].name}</strong></span>
+            <span>Example waypoint: <strong>{safePoints[0].name}</strong></span>
           </div>
         )}
       </div>

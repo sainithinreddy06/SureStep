@@ -12,6 +12,8 @@
 
 ### Phase 1 — Safety and data integrity
 
+- Tactical Map labels example waypoints in its legend, summary and popups. A sample waypoint no longer implies a nearby verified refuge or emergency contact.
+
 - Fifth checkpoint: hazard notes distinguish sample entries from unverified notes saved on this device. Creating a note requires device GPS and surfaces a storage failure. Trusted moderation and externally verified records remain part of the Phase 2 data model.
 
 - Fourth checkpoint: the Safety Center prepares a device GPS message for explicit sharing or copying, reports cancellation and failure, and leaves delivery unconfirmed. Unverified trail phone links were removed.

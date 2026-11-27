@@ -200,3 +200,5 @@ The audit did not intentionally write production data, submit a hazard, start a 
 - SOS-01 follow-up: emergency location sharing now has separate prepare, share, and copy actions. The message records the GPS fix time. Sharing completion does not imply delivery. Removed the hardcoded emergency number and unverified trail phone links from Safety Center.
 
 - DATA-02 follow-up: removed client-side verification actions and counts. Local hazard notes require device GPS, preserve the draft on storage failure, and display their source in the list and map. The hazard popup renders report contents as plain text. Server-side moderation remains a Phase 2 item.
+
+- SOS-01 map follow-up: sample trail waypoints are labeled as unverified. Their popups omit unverified phone numbers and render stored fields as text. The map no longer presents the first sample waypoint as the nearest refuge.
