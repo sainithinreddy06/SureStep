@@ -80,6 +80,7 @@ export default function App() {
   // GPS & Position State
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('simulating');
   const [demoCoords, setDemoCoords] = useState<Coordinates>({
+    source: 'demo',
     latitude: MOCK_TRAILS[0].coordinates[0][0],
     longitude: MOCK_TRAILS[0].coordinates[0][1],
     altitude: MOCK_TRAILS[0].baseElevationM,
@@ -301,6 +302,7 @@ export default function App() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const coords: Coordinates = {
+          source: 'device',
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           altitude: pos.coords.altitude,
@@ -352,6 +354,7 @@ export default function App() {
       const elev = selectedTrail.baseElevationM + (selectedTrail.maxElevationM - selectedTrail.baseElevationM) * Math.sin(distFraction * Math.PI);
 
       const nextCoords: Coordinates = {
+        source: 'demo',
         latitude: point[0],
         longitude: point[1],
         altitude: elev,
@@ -486,6 +489,7 @@ export default function App() {
     setSimulationIndex(0);
     const startPoint = trail.coordinates[0];
     const newCoords: Coordinates = {
+      source: 'demo',
       latitude: startPoint[0],
       longitude: startPoint[1],
       altitude: trail.baseElevationM,
@@ -498,6 +502,15 @@ export default function App() {
     setBreadcrumbs([gpsCoords ?? newCoords]);
   };
 
+  const openDemo = (tab: string) => {
+    stopBrowserGps();
+    setGpsStatus('simulating');
+    setIsSimulating(true);
+    setGpsDeniedAlert(false);
+    setShowLandingPage(false);
+    setActiveTab(tab);
+  };
+
   if (showLandingPage) {
     return (
       <LandingPage
@@ -506,18 +519,9 @@ export default function App() {
           setActiveTab('map');
           if (!gpsCoords && gpsStatus !== 'requesting') startBrowserGps();
         }}
-        onLaunchHUD={() => {
-          setShowLandingPage(false);
-          setActiveTab('vision');
-        }}
-        onOpenMap={() => {
-          setShowLandingPage(false);
-          setActiveTab('map');
-        }}
-        onOpenRisk={() => {
-          setShowLandingPage(false);
-          setActiveTab('risk');
-        }}
+        onLaunchHUD={() => openDemo('vision')}
+        onOpenMap={() => openDemo('map')}
+        onOpenRisk={() => openDemo('risk')}
         onOpenSafety={() => {
           setShowLandingPage(false);
           setActiveTab('safety');
