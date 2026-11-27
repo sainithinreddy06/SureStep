@@ -171,18 +171,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       });
 
       const marker = L.marker([hz.coordinates.latitude, hz.coordinates.longitude], { icon });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; color: #f5f5f4;">
-          <div style="font-size: 10px; font-weight: 700; color: ${color}; text-transform: uppercase;">
-            ${hz.severity} HAZARD · ${hz.type}
-          </div>
-          <div style="font-weight: 600; font-size: 13px; margin: 2px 0 4px 0;">${hz.title}</div>
-          <div style="color: #d6d3d1; font-size: 11px; margin-bottom: 6px;">${hz.description}</div>
-          <div style="font-size: 10px; color: #a8a29e; border-top: 1px solid #44403c; padding-top: 4px;">
-            Verified by ${hz.verifiedCount} mountain hikers
-          </div>
-        </div>
-      `);
+      const popup = document.createElement('div');
+      popup.style.color = '#f5f5f4';
+      const title = document.createElement('strong');
+      title.textContent = hz.title;
+      const detail = document.createElement('div');
+      detail.textContent = `${hz.severity} · ${hz.type.replace('_', ' ')}`;
+      const description = document.createElement('div');
+      description.textContent = hz.description;
+      const source = document.createElement('small');
+      source.textContent = trail?.knownHazards.includes(hz) ? 'Example trail entry' : 'Saved on this device · Unverified';
+      popup.append(title, detail, description, source);
+      marker.bindPopup(popup);
 
       marker.on('click', () => {
         if (onSelectHazard) onSelectHazard(hz);
@@ -190,7 +190,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       hazardGroupRef.current?.addLayer(marker);
     });
-  }, [hazards, onSelectHazard]);
+  }, [hazards, onSelectHazard, trail]);
 
   // Safe Refuges Layer
   useEffect(() => {
@@ -363,7 +363,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         <button
           onClick={onOpenReportModal}
           className="p-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-lg border border-amber-400 shadow-lg transition-colors flex items-center justify-center self-end"
-          title="Pin verified hazard at current location"
+          title="Add a local hazard note"
         >
           <Plus className="w-4 h-4" />
         </button>

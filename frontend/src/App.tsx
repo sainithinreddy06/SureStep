@@ -471,14 +471,7 @@ export default function App() {
   };
 
   const handleAddHazard = (newHz: HazardReport) => {
-    addCustomHazard(newHz);
-    setCustomHazards(getCustomHazards());
-  };
-
-  const handleVerifyHazard = (id: string) => {
-    setCustomHazards((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, verifiedCount: h.verifiedCount + 1 } : h))
-    );
+    setCustomHazards(addCustomHazard(newHz));
   };
 
   const handleSelectTrail = (trail: TrailRoute) => {
@@ -755,11 +748,11 @@ export default function App() {
               units={settings.units}
             />
 
-            {/* Crowdsourced Hazards Log */}
+            {/* Local hazard notes */}
             <HazardsList
               hazards={allHazards}
               onOpenReportModal={() => setIsReportModalOpen(true)}
-              onVerifyHazard={handleVerifyHazard}
+              exampleHazards={selectedTrail.knownHazards}
             />
 
             {/* Persistent Firestore Historical Incidents Archive */}
@@ -803,7 +796,7 @@ export default function App() {
       {/* Hazard Reporting Modal */}
       {isReportModalOpen && (
         <HazardReportingModal
-          currentCoords={currentCoords}
+          currentCoords={gpsCoords}
           onClose={() => setIsReportModalOpen(false)}
           onSubmit={handleAddHazard}
         />

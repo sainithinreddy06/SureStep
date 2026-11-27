@@ -198,3 +198,5 @@ The audit did not intentionally write production data, submit a hazard, start a 
 - SAF-02 and DB-02 follow-up: removed generated foot-placement targets, canned Ranger advice, invented Ranger context and archive fixture writes. The archive distinguishes empty, unavailable and failed-save states. Existing Firestore records were left in place and are shown as unverified.
 
 - SOS-01 follow-up: emergency location sharing now has separate prepare, share, and copy actions. The message records the GPS fix time. Sharing completion does not imply delivery. Removed the hardcoded emergency number and unverified trail phone links from Safety Center.
+
+- DATA-02 follow-up: removed client-side verification actions and counts. Local hazard notes require device GPS, preserve the draft on storage failure, and display their source in the list and map. The hazard popup renders report contents as plain text. Server-side moderation remains a Phase 2 item.

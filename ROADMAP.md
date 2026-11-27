@@ -12,6 +12,8 @@
 
 ### Phase 1 — Safety and data integrity
 
+- Fifth checkpoint: hazard notes distinguish sample entries from unverified notes saved on this device. Creating a note requires device GPS and surfaces a storage failure. Trusted moderation and externally verified records remain part of the Phase 2 data model.
+
 - Fourth checkpoint: the Safety Center prepares a device GPS message for explicit sharing or copying, reports cancellation and failure, and leaves delivery unconfirmed. Unverified trail phone links were removed.
 
 - Third checkpoint: camera analysis returns only possible visible features. Ranger failures show an unavailable state, and the incident archive reads without inserting sample data. Existing records need an owner-approved provenance review.

@@ -1,31 +1,24 @@
 import React, { useState } from 'react';
 import { HazardReport, HazardSeverity } from '../types';
-import { AlertOctagon, AlertTriangle, Check, Filter, Info, MapPin, Plus, ThumbsUp } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
 
 interface HazardsListProps {
   hazards: HazardReport[];
   onOpenReportModal: () => void;
-  onVerifyHazard: (id: string) => void;
+  exampleHazards: HazardReport[];
 }
 
 export const HazardsList: React.FC<HazardsListProps> = ({
   hazards,
   onOpenReportModal,
-  onVerifyHazard
+  exampleHazards
 }) => {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
-  const [verifiedMap, setVerifiedMap] = useState<Record<string, boolean>>({});
 
   const filtered = hazards.filter(h => {
     if (filterSeverity === 'all') return true;
     return h.severity === filterSeverity;
   });
-
-  const handleVerify = (id: string) => {
-    if (verifiedMap[id]) return;
-    setVerifiedMap(prev => ({ ...prev, [id]: true }));
-    onVerifyHazard(id);
-  };
 
   const getSeverityBadge = (sev: HazardSeverity) => {
     switch (sev) {
@@ -56,9 +49,9 @@ export const HazardsList: React.FC<HazardsListProps> = ({
       {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-900/90 border border-stone-800 p-4 rounded-xl">
         <div>
-          <h3 className="font-bold text-base text-stone-100">Trail Hazards Feed</h3>
+          <h3 className="font-bold text-base text-stone-100">Trail Hazard Notes</h3>
           <p className="text-xs text-stone-400 mt-0.5">
-            Crowdsourced and ranger-verified backcountry trail hazards along your route.
+            Example trail entries and unverified notes saved on this device.
           </p>
         </div>
 
@@ -67,7 +60,7 @@ export const HazardsList: React.FC<HazardsListProps> = ({
           className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          Report New Hazard
+          Add Local Hazard Note
         </button>
       </div>
 
@@ -81,7 +74,7 @@ export const HazardsList: React.FC<HazardsListProps> = ({
               : 'text-stone-400 hover:text-stone-200'
           }`}
         >
-          All Hazards ({hazards.length})
+          All Entries ({hazards.length})
         </button>
         <button
           onClick={() => setFilterSeverity('critical')}
@@ -142,21 +135,9 @@ export const HazardsList: React.FC<HazardsListProps> = ({
                   <h4 className="font-bold text-sm text-stone-100">{hazard.title}</h4>
                 </div>
 
-                <button
-                  onClick={() => handleVerify(hazard.id)}
-                  disabled={verifiedMap[hazard.id]}
-                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0 ${
-                    verifiedMap[hazard.id]
-                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
-                      : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700'
-                  }`}
-                  title="Confirm this hazard is still present"
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  <span>
-                    {hazard.verifiedCount + (verifiedMap[hazard.id] ? 1 : 0)} Verified
-                  </span>
-                </button>
+                <span className="text-xs text-stone-400 text-right">
+                  {exampleHazards.includes(hazard) ? 'Example trail entry' : 'Saved on this device · Unverified'}
+                </span>
               </div>
 
               <p className="text-stone-300 leading-relaxed bg-stone-950/60 p-2.5 rounded-lg border border-stone-800/80">
@@ -170,7 +151,6 @@ export const HazardsList: React.FC<HazardsListProps> = ({
                     {hazard.coordinates.latitude.toFixed(4)}°, {hazard.coordinates.longitude.toFixed(4)}°
                   </span>
                 </div>
-                <span>Stay on designated bypass route</span>
               </div>
             </div>
           ))

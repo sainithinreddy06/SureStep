@@ -1,0 +1,93 @@
+name: Check hazard note provenance
+on:
+  push:
+    branches: [codex/check-phase-1-hazard-notes]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: Run regression tests, type check and build
+        run: |
+          node --test tests/phase1-data-integrity.test.mjs frontend/tests/weatherService.test.mjs
+          cd frontend
+          npm ci
+          npm run lint
+          npm run build
+      - name: Check hazard notes in Chromium
+        working-directory: frontend
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 > /tmp/surestep-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          try {
+            const base = 'http://127.0.0.1:4173';
+            const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+            await page.addInitScript(() => {
+              const save = Storage.prototype.setItem;
+              Storage.prototype.setItem = function(key, value) {
+                if (window.rejectNote && key === 'surestep_custom_hazards') throw new Error('Storage unavailable');
+                return save.call(this, key, value);
+              };
+              navigator.geolocation.watchPosition = success => {
+                setTimeout(() => success({ coords: { latitude: 0, longitude: 0, accuracy: 8, altitude: null }, timestamp: Date.now() }), 0);
+                return 1;
+              };
+              navigator.geolocation.clearWatch = () => {};
+            });
+            await page.route('**/*', route => {
+              const url = new URL(route.request().url());
+              if (url.origin !== base) return route.abort();
+              if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 503, json: {} });
+              return route.continue();
+            });
+            await page.goto(base);
+            await page.getByRole('button', { name: 'Open Tactical Map', exact: true }).first().click();
+            const open = page.getByTitle('Add a local hazard note');
+            const save = page.getByRole('button', { name: 'Save on This Device' });
+            await open.click();
+            assert.equal(await save.isDisabled(), true);
+            await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+            await page.getByRole('button', { name: 'Connect Device GPS' }).click();
+            await page.getByText('Device GPS active', { exact: true }).waitFor();
+            await open.click();
+            const title = page.getByPlaceholder('e.g. Unstable boulders on steep switchback');
+            await title.fill('Synthetic trail note');
+            await page.getByPlaceholder(/Describe condition/).fill('Loose stones observed by the test user.');
+            await page.evaluate(() => { window.rejectNote = true; });
+            await save.click();
+            await page.getByRole('alert').filter({ hasText: /could not save the note/ }).waitFor();
+            assert.equal(await title.inputValue(), 'Synthetic trail note');
+            await page.evaluate(() => { window.rejectNote = false; });
+            await save.click();
+            await save.waitFor({ state: 'hidden' });
+            const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('surestep_custom_hazards')));
+            assert.equal(saved[0].verifiedCount, 0);
+            assert.equal(saved[0].coordinates.latitude, 0);
+            assert.equal(saved[0].coordinates.longitude, 0);
+            await page.getByText('Risk & Incidents', { exact: true }).click();
+            const card = page.getByText('Synthetic trail note', { exact: true });
+            await card.waitFor();
+            await page.getByText('Saved on this device · Unverified', { exact: true }).waitFor();
+            await page.getByText('Example trail entry', { exact: true }).first().waitFor();
+            assert.equal(await page.getByTitle('Confirm this hazard is still present').count(), 0);
+          } finally {
+            await browser.close();
+          }
+          JS
