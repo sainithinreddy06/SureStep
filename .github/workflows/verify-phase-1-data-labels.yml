@@ -1,0 +1,107 @@
+name: Verify Phase 1 dashboard
+on:
+  push:
+    branches: [codex/verify-phase-1-data-labels]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: Build and test frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+          node --test tests/weatherService.test.mjs
+      - name: Verify browser states with mocked services
+        working-directory: frontend
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 > /tmp/surestep-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          try {
+            const base = 'http://127.0.0.1:4173';
+            const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+            const page = await context.newPage();
+            await page.addInitScript(() => {
+              navigator.geolocation.watchPosition = (success, failure) => {
+                setTimeout(() => {
+                  if (!window.allowTestGps) failure({ code: 1, message: 'Denied in test' });
+                  else success({ coords: { latitude: 0, longitude: 0, altitude: null, accuracy: 8, heading: null }, timestamp: Date.now() });
+                }, 0);
+                return 1;
+              };
+              navigator.geolocation.clearWatch = () => {};
+            });
+            const modelTime = Math.floor(Date.now() / 1000) - 300;
+            let hazardFailure = false;
+            let weatherFailure = false;
+            let weatherRequests = 0;
+            await page.route('**/*', async route => {
+              const url = new URL(route.request().url());
+              if (url.hostname === 'api.open-meteo.com') {
+                weatherRequests++;
+                assert.equal(url.searchParams.get('latitude'), '0');
+                assert.equal(url.searchParams.get('longitude'), '0');
+                return weatherFailure ? route.fulfill({ status: 503, json: {} }) : route.fulfill({ json: {
+                  elevation: 0,
+                  current: { time: modelTime, temperature_2m: 12, apparent_temperature: 11, relative_humidity_2m: 77,
+                    precipitation: 0, weather_code: 0, wind_speed_10m: 0, wind_gusts_10m: 0, precipitation_probability: 0, uv_index: 0 }
+                } });
+              }
+              if (url.origin !== base) return route.abort();
+              if (url.pathname === '/api/natural-hazards') {
+                return hazardFailure ? route.fulfill({ status: 503, json: {} }) : route.fulfill({ json: { events: [] } });
+              }
+              if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 503, json: {} });
+              return route.continue();
+            });
+            await page.goto(base);
+            await page.getByRole('button', { name: 'Open Tactical Map', exact: true }).first().click();
+            await page.getByText('Demo mode · Simulated position', { exact: true }).waitFor();
+            await page.getByText('Waiting for device GPS', { exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Connect Device GPS', exact: true }).click();
+            await page.getByText(/Device GPS is unavailable/).waitFor();
+            assert.equal(weatherRequests, 0);
+            await page.evaluate(() => { window.allowTestGps = true; });
+            await page.getByRole('button', { name: 'Connect Device GPS', exact: true }).click();
+            await page.getByText('No earthquakes reported within 500 km in the past day', { exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Switch to Demo Position', exact: true }).click();
+            hazardFailure = true;
+            await page.getByRole('button', { name: 'Connect Device GPS', exact: true }).click();
+            await page.getByText('Earthquake data unavailable', { exact: true }).waitFor();
+            hazardFailure = false;
+            await page.getByRole('button', { name: 'Switch to Demo Position', exact: true }).click();
+            await page.getByRole('button', { name: 'Connect Device GPS', exact: true }).click();
+            await page.getByText('No earthquakes reported within 500 km in the past day', { exact: true }).waitFor();
+            await page.getByText('Risk & Incidents', { exact: true }).click();
+            await page.getByText('Demo Terrain Risk Prediction', { exact: true }).waitFor();
+            await page.getByText('Open-Meteo model', { exact: true }).waitFor();
+            assert.equal(await page.locator('time').getAttribute('datetime'), new Date(modelTime * 1000).toISOString());
+            weatherFailure = true;
+            await page.getByRole('button', { name: 'Refresh weather', exact: true }).click();
+            await page.getByText('Saved data', { exact: true }).waitFor();
+            console.log('Browser checks passed for demo and GPS labels, earthquake outage and recovery, and weather timestamp and cache.');
+          } finally {
+            await browser.close();
+          }
+          JS
