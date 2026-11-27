@@ -37,33 +37,7 @@ The ML service uses:
 
 ### SureStep Vision
 
-SureStep Vision provides camera-based environmental analysis using **YOLO object detection**.
-
-The system supports:
-
-- Live camera detection
-- Image detection
-- Video frame analysis
-- Object detection
-- Bounding boxes
-- Confidence scores
-- Adjustable confidence threshold
-- Hazard classification
-- Risk assessment
-- Safety recommendations
-- Detection history
-- GPS-aware detection logging
-- Tactical Map hazard integration
-
-The current computer-vision service uses:
-
-- Ultralytics YOLO
-- PyTorch
-- Torchvision
-- OpenCV
-- Pillow
-
-The architecture is designed to support a future custom `best.pt` model trained specifically for hiking and outdoor hazards.
+Ground Vision uses experimental image analysis to identify possible visible surface features from a user-captured or uploaded trail photo. The app shows an unavailable state if the analysis cannot be completed.
 
 ---
 
@@ -118,10 +92,8 @@ Features include:
 - Location monitoring
 - Hazard markers
 - Reported hazard locations
-- Vision-generated hazard locations
 - Tactical map interface
 
-Hazards detected through SureStep Vision can be logged directly to the Tactical Map.
 
 ---
 
@@ -153,7 +125,6 @@ A hazard report can contain:
 - Timestamp
 - Verification information
 
-Computer-vision detections can also be converted into hazard reports for visualization on the Tactical Map.
 
 ---
 
@@ -249,4 +220,4 @@ The camera and video preview remain dark to preserve visibility of the captured 
 
 ## SureStep camera behavior
 
-The Vision HUD keeps the original product layout while using the SureStep sunlight palette. On supported mobile browsers, Ground Vision requests the device rear camera with `getUserMedia`. Captured frames are sent to the backend footstep-analysis endpoint. Returned step targets are rendered as color-coded boxes: green for safe (80-100%), orange for caution (50-79%), and red for danger (0-49%), with the safety percentage displayed on each target.
+Ground Vision requests rear-camera access when the user opens the camera. Capturing or uploading a supported photo sends it to the backend for descriptive analysis.

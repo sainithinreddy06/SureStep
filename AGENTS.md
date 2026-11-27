@@ -9,7 +9,7 @@ The project owner requires the Ponytail skill to be located, read and applied th
 - Read `AUDIT.md` and `ROADMAP.md` before implementation; update both when evidence or phase status changes.
 - Do not present simulated, estimated, cached, stale or model-generated information as verified live data. If data is absent or an upstream fails, show an explicit unavailable state; never synthesize a live hazard or safety classification.
 - Treat camera, terrain, risk and Ranger AI behavior as experimental and non-authoritative. Do not provide foot-placement instructions or physical-safety guarantees without independently validated evidence.
-- Use synthetic data and isolated providers/Firebase Emulator for tests. Do not query or modify production Firestore records as part of routine testing. The current incident-history loader has an automatic production fixture-seed path; do not open that flow against production until it is removed or safely isolated.
+- Use synthetic data and isolated providers/Firebase Emulator for tests. Do not query or modify production Firestore records as part of routine testing. The deployed incident archive must be treated as potentially containing old sample data until an owner-approved review.
 - Never print, commit or copy credentials. Keep AI/API credentials server-side; do not make billable model calls without explicit approval.
 - Obtain explicit approval before destructive data migrations, paid services, production configuration changes or production deployments.
 

@@ -20,12 +20,14 @@ interface HistoricalIncidentDatabaseProps {
   trailId: string;
   trailName: string;
   currentCoords: Coordinates;
+  hasDeviceGps: boolean;
 }
 
 export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProps> = ({
   trailId,
   trailName,
-  currentCoords
+  currentCoords,
+  hasDeviceGps
 }) => {
   const [incidents, setIncidents] = useState<HistoricalIncident[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -41,14 +43,18 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
   const [outcome, setOutcome] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   const loadIncidents = async () => {
     setIsLoading(true);
+    setLoadError(false);
     try {
       const data = await getHistoricalIncidents(trailId);
       setIncidents(data);
-    } catch (err) {
-      console.warn('Error loading incidents:', err);
+    } catch {
+      setIncidents([]);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +66,10 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description) return;
+    if (!title.trim() || !description.trim() || !hasDeviceGps || isSubmitting) return;
 
     setIsSubmitting(true);
+    setSubmitError(false);
     try {
       await logHistoricalIncident({
         title,
@@ -70,13 +77,13 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
         trailId,
         incidentType,
         severity,
-        occurredAt: occurredAt || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        outcome: outcome || 'Documented in backcountry incident registry.',
-        source: 'User/Ranger Field Record',
+        occurredAt: occurredAt.trim() || 'Date not provided',
+        outcome: outcome.trim(),
+        source: 'Community report',
         coordinates: {
           latitude: currentCoords.latitude,
           longitude: currentCoords.longitude,
-          altitude: currentCoords.altitude || undefined
+          ...(currentCoords.altitude == null ? {} : { altitude: currentCoords.altitude })
         }
       });
 
@@ -89,8 +96,8 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
         setOutcome('');
         loadIncidents();
       }, 1500);
-    } catch (err) {
-      console.error('Submit error:', err);
+    } catch {
+      setSubmitError(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,9 +120,6 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
               <h3 className="font-extrabold text-sm text-stone-100">
                 Historical Incidents & Accident Archive
               </h3>
-              <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">
-                Firestore Connected
-              </span>
             </div>
             <p className="text-xs text-stone-400">
               Previous rockfalls, rescues, and severe slip events recorded at <strong className="text-stone-200">{trailName}</strong>
@@ -124,7 +128,9 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setSubmitError(false); setIsModalOpen(true); }}
+          disabled={!hasDeviceGps}
+          title={hasDeviceGps ? undefined : 'Connect device GPS to add a location to your report'}
           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl transition-colors shadow flex items-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -154,9 +160,13 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
         <div className="py-8 text-center text-xs text-stone-500">
           Querying Firestore historical incident database...
         </div>
+      ) : loadError ? (
+        <div role="alert" className="py-6 text-center text-xs text-amber-300">
+          Incident archive unavailable. <button onClick={loadIncidents} className="underline">Retry loading incidents</button>
+        </div>
       ) : filteredIncidents.length === 0 ? (
         <div className="py-6 text-center text-xs text-stone-400 bg-stone-950/50 rounded-xl border border-stone-800/60 p-4">
-          No historical accidents of this category found for this trail corridor.
+          No incident reports match this trail and filter.
         </div>
       ) : (
         <div className="space-y-3">
@@ -201,13 +211,13 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
 
                 {inc.outcome && (
                   <div className="p-2 bg-stone-900 border border-stone-800 rounded-lg text-[11px] text-amber-200">
-                    <strong className="text-amber-300">Ranger / SAR Outcome:</strong> {inc.outcome}
+                    <strong className="text-amber-300">Reported outcome:</strong> {inc.outcome}
                   </div>
                 )}
 
                 <div className="flex items-center justify-between text-[10px] text-stone-500 pt-1 border-t border-stone-900">
-                  <span>Source: {inc.source || 'Backcountry Safety Registry'}</span>
-                  <span className="text-emerald-400">Verified Location Record</span>
+                  <span>Reported source: {inc.source || 'Unavailable'}</span>
+                  <span className="text-amber-300">Unverified report</span>
                 </div>
               </div>
             );
@@ -235,11 +245,14 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
             {submitSuccess ? (
               <div className="py-8 text-center space-y-2">
                 <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-                <div className="font-bold text-stone-200 text-sm">Stored in Firestore Database!</div>
-                <p className="text-xs text-stone-400">This historical incident record is now saved for all backcountry hikers and rangers.</p>
+                <div className="font-bold text-stone-200 text-sm">Incident report saved</div>
+                <p className="text-xs text-stone-400">Saved as an unverified community report.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+                <p className="text-stone-400">Your device location is saved with this report.</p>
+                {!hasDeviceGps && <p role="status" className="text-amber-300">Reconnect device GPS to submit the report.</p>}
+                {submitError && <p role="alert" className="text-amber-300">The incident report could not be saved. Your entries are still here.</p>}
                 <div>
                   <label className="block text-stone-400 mb-1 font-semibold">Incident Title</label>
                   <input
@@ -327,7 +340,7 @@ export const HistoricalIncidentDatabase: React.FC<HistoricalIncidentDatabaseProp
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !hasDeviceGps}
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold rounded-lg shadow disabled:opacity-50"
                   >
                     {isSubmitting ? 'Saving to Database...' : 'Save to Firestore'}

@@ -24,35 +24,24 @@ interface ChatMessage {
 interface RangerAiChatProps {
   isOpen: boolean;
   onClose: () => void;
-  currentCoords: Coordinates;
-  elevationMeters: number;
+  currentCoords: Coordinates | null;
   weatherSummary?: string;
-  riskLevel?: string;
 }
 
 const QUICK_QUESTIONS = [
-  'How do I cross a loose scree slope safely?',
-  'What should I do during an earthquake or rockfall on a ridge?',
-  'Signs of hypothermia vs altitude exhaustion?',
-  'How do I identify a dangerous snow bridge?'
+  'What should I pack for a day hike?',
+  'How can I check trail conditions before leaving?',
+  'How can I plan a turnaround time?',
 ];
 
 export const RangerAiChat: React.FC<RangerAiChatProps> = ({
   isOpen,
   onClose,
   currentCoords,
-  elevationMeters,
-  weatherSummary,
-  riskLevel
+  weatherSummary
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg-welcome',
-      role: 'model',
-      text: 'SureStep Backcountry AI Ranger online. Ask about immediate terrain footing, severe weather response, seismic protocols, or wilderness triage.',
-      timestamp: Date.now()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sendError, setSendError] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -62,7 +51,7 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, sendError]);
 
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || input).trim();
@@ -78,43 +67,42 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    setSendError(false);
 
     try {
       const response = await fetch('/api/ranger-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(20000),
         body: JSON.stringify({
           message: text,
           history: messages.slice(-6).map(m => ({ role: m.role, text: m.text })),
           context: {
-            coords: `${currentCoords.latitude.toFixed(4)}°, ${currentCoords.longitude.toFixed(4)}°`,
-            elevation: `${Math.round(elevationMeters)}m`,
-            weather: weatherSummary || 'Mountain conditions',
-            riskLevel: riskLevel || 'Moderate'
+            coords: currentCoords ? `${currentCoords.latitude.toFixed(4)}°, ${currentCoords.longitude.toFixed(4)}°` : undefined,
+            elevation: currentCoords?.altitude == null ? undefined : `${Math.round(currentCoords.altitude)} m`,
+            weather: weatherSummary
           }
         })
       });
 
       if (!response.ok) throw new Error('Ranger chat request failed');
       const data = await response.json();
+      if (data?.isFallback || typeof data?.reply !== 'string' || !data.reply.trim()) {
+        throw new Error('Ranger AI is unavailable');
+      }
 
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'model',
-        text: data.reply || 'Maintain stable 3-point contact and verify your footing before committing weight.',
+        text: data.reply.trim(),
         timestamp: Date.now()
       };
 
       setMessages(prev => [...prev, aiMsg]);
-    } catch (err) {
-      console.warn('Chat error, using emergency local safety rule:', err);
-      const fallbackMsg: ChatMessage = {
-        id: `ai-err-${Date.now()}`,
-        role: 'model',
-        text: 'EMERGENCY ADVICE: Always keep your center of gravity low. Probe loose rocks with trekking poles before stepping. If weather or rockfall threatens, halt and descend below the tree line immediately.',
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, fallbackMsg]);
+    } catch {
+      setMessages(prev => prev.filter(item => item.id !== userMsg.id));
+      setInput(previous => previous || text);
+      setSendError(true);
     } finally {
       setIsLoading(false);
     }
@@ -142,18 +130,16 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-stone-100">Ranger AI Copilot</h3>
-                <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.2 rounded font-mono">
-                  Gemini 3.8
-                </span>
               </div>
               <div className="text-[11px] text-stone-400">
-                Backcountry hazard & survival intelligence
+                Experimental AI for general hiking questions
               </div>
             </div>
           </div>
 
           <button
             onClick={onClose}
+            aria-label="Close Ranger AI"
             className="p-1.5 text-stone-400 hover:text-stone-100 hover:bg-stone-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
@@ -208,10 +194,11 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
           {isLoading && (
             <div className="flex gap-2.5 items-center text-xs text-stone-400 bg-stone-950/60 p-2.5 rounded-xl border border-stone-800 w-fit">
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-              <span>Analyzing terrain risks and ranger protocol...</span>
+              <span>Waiting for Ranger AI</span>
             </div>
           )}
 
+          {sendError && <p role="alert" className="text-amber-300">Ranger AI unavailable. Try sending your question again.</p>}
           <div ref={messagesEndRef} />
         </div>
 
@@ -221,6 +208,7 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
             <button
               key={i}
               onClick={() => handleSend(q)}
+              disabled={isLoading}
               className="px-2.5 py-1 rounded-md bg-stone-900 border border-stone-800 text-stone-300 hover:text-white hover:border-emerald-500/60 whitespace-nowrap transition-colors"
             >
               {q}
@@ -240,11 +228,13 @@ export const RangerAiChat: React.FC<RangerAiChatProps> = ({
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Ask Ranger AI (e.g. crossing wet rocks, tremor advice)..."
+            placeholder="Ask a general hiking question"
+            aria-label="Ask Ranger AI"
             className="flex-1 bg-stone-900 border border-stone-800 rounded-xl px-3.5 py-2.5 text-xs text-stone-100 placeholder-stone-500 focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
+            aria-label="Send question"
             disabled={!input.trim() || isLoading}
             className="p-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl transition-colors shadow-md"
           >
