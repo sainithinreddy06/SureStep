@@ -1,0 +1,62 @@
+name: Check map waypoint labels
+on:
+  push:
+    branches: [codex/check-example-waypoints]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: Run regression tests, type check and build
+        run: |
+          node --test tests/phase1-data-integrity.test.mjs frontend/tests/weatherService.test.mjs
+          cd frontend
+          npm ci
+          npm run lint
+          npm run build
+      - name: Check waypoint popups in Chromium
+        working-directory: frontend
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 > /tmp/surestep-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          try {
+            const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+            const base = 'http://127.0.0.1:4173';
+            await page.route('**/*', route => {
+              const url = new URL(route.request().url());
+              if (url.origin !== base) return route.abort();
+              if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 503, json: {} });
+              return route.continue();
+            });
+            await page.goto(base);
+            await page.getByRole('button', { name: 'Open Tactical Map', exact: true }).first().click();
+            await page.getByText(/Example waypoint:/).waitFor();
+            await page.getByText(/\d+ example waypoints/).waitFor();
+            const marker = page.locator('.tactical-sp-marker').first();
+            await marker.waitFor({ state: 'attached' });
+            await marker.dispatchEvent('click');
+            const popup = page.locator('.leaflet-popup-content');
+            await popup.getByText('Example trail waypoint · Unverified').waitFor();
+            assert.doesNotMatch(await popup.innerText(), /Call:|Nearest refuge/i);
+            assert.equal(await popup.locator('a[href^="tel:"]').count(), 0);
+          } finally {
+            await browser.close();
+          }
+          JS
