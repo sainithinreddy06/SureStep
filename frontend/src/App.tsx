@@ -17,7 +17,6 @@ import {
   addCustomHazard,
   deleteHikeSession,
   getCustomHazards,
-  getEmergencyContacts,
   getSavedSessions,
   getUserSettings,
   saveHikeSession,
@@ -158,8 +157,6 @@ export default function App() {
       setIsNetworkOffline(true);
     }
   };
-
-  const emergencyContacts = getEmergencyContacts();
 
   const allHazards = [
     ...(selectedTrail ? selectedTrail.knownHazards : []),
@@ -782,7 +779,6 @@ export default function App() {
             <SafetyCenter
               currentCoords={currentCoords}
               safePoints={allSafePoints}
-              emergencyContacts={emergencyContacts}
               key={gpsCoords ? 'device' : 'demo'}
               hasDeviceGps={Boolean(gpsCoords)}
               elevationMeters={currentCoords.altitude ?? null}

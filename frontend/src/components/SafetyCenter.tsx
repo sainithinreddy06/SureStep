@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Coordinates, EmergencyContact, SafeLocation } from '../types';
-import { AlertOctagon, Check, Copy, Phone, Shield, Share2, MapPin, Compass, HeartPulse, Radio, AlertTriangle, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Coordinates, SafeLocation } from '../types';
+import { AlertOctagon, Check, Copy, Shield, Share2, MapPin, HeartPulse } from 'lucide-react';
 
 interface SafetyCenterProps {
   currentCoords: Coordinates;
   hasDeviceGps: boolean;
   safePoints: SafeLocation[];
-  emergencyContacts: EmergencyContact[];
   elevationMeters: number | null;
 }
 
@@ -14,14 +13,12 @@ export const SafetyCenter: React.FC<SafetyCenterProps> = ({
   currentCoords,
   hasDeviceGps,
   safePoints,
-  emergencyContacts,
   elevationMeters
 }) => {
   const [copiedCoords, setCopiedCoords] = useState(false);
-  const [copiedSosPayload, setCopiedSosPayload] = useState(false);
-  const [sosStatus, setSosStatus] = useState<'idle' | 'arming' | 'dispatched'>('idle');
-  const [countdown, setCountdown] = useState<number>(5);
-  const [shareResultNote, setShareResultNote] = useState<string>('');
+  const [preparedMessage, setPreparedMessage] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState('');
+  const [sharing, setSharing] = useState(false);
 
   // Convert decimal to DMS
   const toDms = (deg: number, isLat: boolean) => {
@@ -52,72 +49,42 @@ export const SafetyCenter: React.FC<SafetyCenterProps> = ({
     }
   };
 
-  // SOS Countdown Timer
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (sosStatus === 'arming' && countdown > 0) {
-      timer = setTimeout(() => {
-        setCountdown(c => c - 1);
-      }, 1000);
-    } else if (sosStatus === 'arming' && countdown === 0) {
-      triggerSosDispatch();
-    }
-    return () => clearTimeout(timer);
-  }, [sosStatus, countdown]);
-
-  const handleStartSosArming = () => {
-    setCountdown(5);
-    setSosStatus('arming');
-  };
-
-  const handleCancelSos = () => {
-    setSosStatus('idle');
-    setCountdown(5);
-  };
-
-  const buildSosMessage = () => {
-    const mapsLink = `https://maps.google.com/?q=${currentCoords.latitude.toFixed(6)},${currentCoords.longitude.toFixed(6)}`;
-    return `[EMERGENCY BACKCOUNTRY SOS]
-I require emergency assistance.
-Coordinates: ${currentCoords.latitude.toFixed(6)}, ${currentCoords.longitude.toFixed(6)}
-DMS: ${latDms}, ${lngDms}
-Altitude: ${altitudeLabel}
+  const prepareMessage = () => {
+    if (!hasDeviceGps) return;
+    const fixTime = currentCoords.timestamp == null ? 'Unavailable' : new Date(currentCoords.timestamp).toISOString();
+    setPreparedMessage(`Emergency location message
+I need assistance.
+Device coordinates: ${coordString}
+GPS fix time: ${fixTime}
 GPS accuracy: ${accuracyLabel}
-Map: ${mapsLink}
-Timestamp: ${new Date().toISOString()}
-Message prepared via SureStep.`;
+Altitude: ${altitudeLabel}
+Map: https://maps.google.com/?q=${currentCoords.latitude.toFixed(6)},${currentCoords.longitude.toFixed(6)}`);
+    setShareStatus('Message prepared.');
   };
 
-  const triggerSosDispatch = async () => {
-    const payload = buildSosMessage();
-    setSosStatus('dispatched');
-
-    // Attempt Web Share API
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'BACKCOUNTRY EMERGENCY SOS',
-          text: payload
-        });
-        setShareResultNote('Device share sheet opened successfully. Please select your emergency dispatch contact or messaging app.');
-        return;
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          setShareResultNote('Device share sheet was closed or unsupported. Coordinates copied to clipboard for direct paste into SMS/Radio.');
-        } else {
-          setShareResultNote('Share sheet cancelled by user. Coordinates copied to clipboard.');
-        }
-      }
-    } else {
-      setShareResultNote('Native share sheet not supported in this browser. Emergency text copied to clipboard.');
-    }
-
-    // Copy to clipboard as reliable fallback
+  const shareMessage = async () => {
+    if (!hasDeviceGps || !preparedMessage || sharing || !navigator.share) return;
+    setSharing(true);
+    setShareStatus('');
     try {
-      await navigator.clipboard.writeText(payload);
-      setCopiedSosPayload(true);
+      await navigator.share({ title: 'Emergency location', text: preparedMessage });
+      setShareStatus('Device sharing completed. Delivery is unconfirmed.');
+    } catch (error) {
+      setShareStatus(error instanceof DOMException && error.name === 'AbortError'
+        ? 'Sharing cancelled.'
+        : 'Device sharing failed. You can copy the message instead.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyMessage = async () => {
+    if (!hasDeviceGps || !preparedMessage || sharing) return;
+    try {
+      await navigator.clipboard.writeText(preparedMessage);
+      setShareStatus('Message copied to clipboard.');
     } catch {
-      // ignore
+      setShareStatus('Clipboard unavailable. Select and copy the message text manually.');
     }
   };
 
@@ -131,96 +98,44 @@ Message prepared via SureStep.`;
           </div>
           <div>
             <h2 className="text-base font-bold text-red-200 uppercase tracking-wide">
-              Emergency SOS Beacon Flow
+              Emergency location sharing
             </h2>
             <p className="text-xs text-stone-300">
-              Prepares a message with your device GPS coordinates for sharing.
+              Prepare a message to share from your device. If you need emergency help, call local emergency services directly.
             </p>
           </div>
         </div>
 
-        {sosStatus === 'idle' && (
-          <div className="mt-4">
-            <button
-              onClick={handleStartSosArming}
-              disabled={!hasDeviceGps}
-              className="w-full py-3.5 px-4 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-950/60 transition-all text-sm uppercase tracking-wider"
-            >
-              <AlertOctagon className="w-5 h-5" />
-              Arm Deliberate Emergency SOS (2-Step)
-            </button>
-            <div className="text-[11px] text-stone-400 text-center mt-2">
-              {hasDeviceGps ? 'A 5-second countdown lets you cancel before sharing.' : 'Connect device GPS to prepare an emergency location.'}
-            </div>
-          </div>
-        )}
-
-        {sosStatus === 'arming' && (
-          <div className="mt-4 bg-red-950/90 border border-red-500 rounded-xl p-4 text-center">
-            <div className="text-xs font-semibold text-red-300 uppercase tracking-widest mb-1">
-              ARMING SOS DISPATCH
-            </div>
-            <div className="text-4xl font-extrabold font-mono text-white my-2 animate-bounce">
-              {countdown}s
-            </div>
-            <p className="text-xs text-red-200 mb-4">
-              Opening device share sheet with your device location in {countdown} seconds...
-            </p>
-
-            <div className="flex gap-2.5">
-              <button
-                onClick={handleCancelSos}
-                className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-100 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <X className="w-4 h-4" />
-                ABORT / CANCEL
-              </button>
-              <button
-                onClick={triggerSosDispatch}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs transition-colors"
-              >
-                DISPATCH NOW
-              </button>
-            </div>
-          </div>
-        )}
-
-        {sosStatus === 'dispatched' && (
-          <div className="mt-4 bg-stone-950/80 border border-red-500/50 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase mb-2">
-              <Check className="w-4 h-4" />
-              Location Payload Prepared
-            </div>
-            <p className="text-xs text-stone-300 leading-relaxed mb-3">
-              {shareResultNote || 'Emergency location payload prepared and copied.'}
-            </p>
-
-            {/* Quick SMS and Call triggers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-              <a
-                href={`sms:?body=${encodeURIComponent(buildSosMessage())}`}
-                className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-100 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors border border-stone-700"
-              >
-                <Share2 className="w-4 h-4 text-emerald-400" />
-                Open SMS App with Coordinates
-              </a>
-              <a
-                href="tel:911"
-                className="py-2 px-3 bg-red-700/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
-              >
-                <Phone className="w-4 h-4" />
-                Call 911 / Park Rescue
-              </a>
-            </div>
-
-            <button
-              onClick={() => setSosStatus('idle')}
-              className="w-full py-2 text-xs text-stone-400 hover:text-stone-200 text-center transition-colors underline"
-            >
-              Reset SOS Status
-            </button>
-          </div>
-        )}
+        <div className="mt-4 space-y-3">
+          <button
+            type="button"
+            onClick={prepareMessage}
+            disabled={!hasDeviceGps || sharing}
+            className="px-4 py-2.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-bold rounded-lg text-sm"
+          >
+            {preparedMessage ? 'Refresh Emergency Message' : 'Prepare Emergency Message'}
+          </button>
+          {!hasDeviceGps && <p className="text-xs text-stone-400">Connect device GPS to prepare a location message.</p>}
+          {hasDeviceGps && preparedMessage && (
+            <>
+              <textarea aria-label="Prepared emergency message" value={preparedMessage} readOnly rows={7}
+                className="w-full p-2 rounded-lg border border-stone-700 bg-stone-950 text-xs text-stone-200 font-mono" />
+              <div className="flex flex-wrap gap-2">
+                {typeof navigator.share === 'function' && (
+                  <button type="button" onClick={shareMessage} disabled={sharing}
+                    className="px-3 py-2 bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-stone-100 rounded-lg text-xs flex items-center gap-2">
+                    <Share2 className="w-4 h-4" /> Share Message
+                  </button>
+                )}
+                <button type="button" onClick={copyMessage} disabled={sharing}
+                  className="px-3 py-2 bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-stone-100 rounded-lg text-xs flex items-center gap-2">
+                  <Copy className="w-4 h-4" /> Copy Message
+                </button>
+              </div>
+              <p role="status" className="text-xs text-stone-300">{shareStatus}</p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* GPS Coordinate Card */}
@@ -278,9 +193,10 @@ Message prepared via SureStep.`;
       <div className="rounded-xl border border-stone-800 bg-stone-900/90 p-4">
         <div className="flex items-center gap-2 mb-3">
           <Shield className="w-4 h-4 text-sky-400" />
-          <h3 className="font-bold text-sm text-stone-100">Nearby Safe Refuges & Ranger Posts</h3>
+          <h3 className="font-bold text-sm text-stone-100">Selected trail reference points</h3>
         </div>
 
+        <p className="mb-3 text-xs text-stone-400">Example trail data. Location details and operating hours are unverified.</p>
         <div className="space-y-2.5">
           {safePoints.map(point => (
             <div
@@ -302,15 +218,6 @@ Message prepared via SureStep.`;
                 )}
               </div>
 
-              {point.emergencyContact && (
-                <a
-                  href={`tel:${point.emergencyContact.replace(/-/g, '')}`}
-                  className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-sky-300 rounded-md font-mono text-xs flex items-center gap-1.5 shrink-0 transition-colors border border-stone-700"
-                >
-                  <Phone className="w-3.5 h-3.5 text-sky-400" />
-                  {point.emergencyContact}
-                </a>
-              )}
             </div>
           ))}
         </div>
