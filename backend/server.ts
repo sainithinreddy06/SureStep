@@ -104,152 +104,90 @@ app.get('/api/natural-hazards', async (req, res) => {
   }
 });
 
-// 2. Ranger AI Copilot Chat Endpoint
+// Ranger AI provides general information and never fills in missing conditions.
 app.post('/api/ranger-chat', async (req, res) => {
-  const { message, history, context } = req.body;
+  const { message, history, context } = req.body ?? {};
 
-  if (!message) {
+  if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Message is required' });
   }
 
-  if (!ai || !process.env.GEMINI_API_KEY) {
-    // Graceful offline/local mountain safety fallback response
-    const fallbackReply = generateFallbackSafetyAdvice(message, context);
-    return res.json({ reply: fallbackReply, isFallback: true });
-  }
+  if (!ai) return res.status(503).json({ error: 'Ranger AI is unavailable' });
 
   try {
-    const systemPrompt = `You are the SureStep Backcountry AI Ranger & Mountain Safety Copilot. 
-Your primary mission is to keep hikers, alpinists, and mountain rangers alive and uninjured in wilderness terrain.
-Provide concise, highly actionable, authoritative mountain advice.
-Current Hiker Context:
-- Coordinates: ${context?.coords || 'Alpine Ridge'}
-- Elevation: ${context?.elevation || '2,100m'}
-- Active Weather: ${context?.weather || 'Gusty alpine winds, variable clouds'}
-- Terrain Risk Level: ${context?.riskLevel || 'Moderate'}
-
-Rules:
-1. Always prioritize immediate physical safety over continuing the hike.
-2. Emphasize turnback decisions when weather or rockfall threatens.
-3. Keep answers tight (2 to 4 bullet points max) so they are fast to read on a mobile phone in direct sunlight.`;
+    const systemPrompt = `You are SureStep Ranger AI. Provide general outdoor information in plain language.
+Do not give foot-placement instructions or make claims about the user's immediate safety.
+Do not infer a location, elevation, weather, hazards, or trail conditions when information is missing.
+Weather context, when provided, comes from a model.
+Device coordinates: ${typeof context?.coords === 'string' ? context.coords : 'Unavailable'}
+Device elevation: ${typeof context?.elevation === 'string' ? context.elevation : 'Unavailable'}
+Weather model: ${typeof context?.weather === 'string' ? context.weather : 'Unavailable'}`;
 
     const contents = [
-      ...(history || []).map((h: any) => ({
-        role: h.role === 'user' ? 'user' : 'model',
-        parts: [{ text: h.text }]
-      })),
-      {
-        role: 'user',
-        parts: [{ text: message }]
-      }
+      ...(Array.isArray(history) ? history.slice(-6)
+        .filter(item => (item?.role === 'user' || item?.role === 'model') && typeof item.text === 'string')
+        .map(item => ({ role: item.role, parts: [{ text: item.text }] })) : []),
+      { role: 'user', parts: [{ text: message.trim() }] },
     ];
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.4
-      }
+      config: { systemInstruction: systemPrompt, temperature: 0.4 },
     });
-
-    res.json({ reply: response.text || 'Assess footing carefully and maintain stable 3-point contact.' });
-  } catch (err: any) {
-    console.error('Ranger chat Gemini error:', err);
-    const fallbackReply = generateFallbackSafetyAdvice(message, context);
-    res.json({ reply: fallbackReply, isFallback: true });
+    const reply = response.text?.trim();
+    if (!reply) return res.status(503).json({ error: 'Ranger AI is unavailable' });
+    return res.json({ reply });
+  } catch {
+    return res.status(503).json({ error: 'Ranger AI is unavailable' });
   }
 });
 
-// 3. AI Camera Foot Placement & Step Guidance Endpoint
-app.post('/api/analyze-footsteps', async (req, res) => {
-  const { imageBase64, mimeType = 'image/jpeg', slopeAngle = 20 } = req.body;
+const terrainFeatures = ['Rock', 'Loose stones', 'Soil', 'Vegetation', 'Snow', 'Surface water'];
+const trailImagePattern = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'Image data is required' });
+app.post('/api/analyze-footsteps', (_req, res) => {
+  res.status(410).json({ error: 'Foot-placement analysis has been retired' });
+});
+
+app.post('/api/analyze-terrain-image', async (req, res) => {
+  const { imageBase64 } = req.body ?? {};
+  const image = typeof imageBase64 === 'string' && imageBase64.length <= Math.ceil(8 * 1024 * 1024 / 3) * 4 + 23
+    ? trailImagePattern.exec(imageBase64)
+    : null;
+  if (!image || image[2].length % 4 !== 0 || Buffer.byteLength(image[2], 'base64') > 8 * 1024 * 1024) {
+    return res.status(400).json({ error: 'Provide a JPEG, PNG, or WebP image up to 8 MB' });
   }
 
-  if (!ai || !process.env.GEMINI_API_KEY) {
-    return res.json(generateFallbackFootstepAnalysis(slopeAngle));
-  }
+  if (!ai) return res.status(503).json({ error: 'Terrain image analysis is unavailable' });
 
   try {
-    const prompt = `Analyze this mountain trail ground image for immediate foot placement safety.
-Slope angle is estimated at ${slopeAngle}° grade.
-Identify 3 to 4 specific step targets on the image where a hiker should or shouldn't place their boots.
-For each step target, specify:
-1. id ('A', 'B', 'C', 'D')
-2. type ('safe_step', 'caution_step', 'danger_no_step')
-3. x (horizontal position percentage from 10 to 90)
-4. y (vertical position percentage from 10 to 90)
-5. width (box width percentage, 8 to 30)
-6. height (box height percentage, 6 to 24)
-7. safetyPercentage (0 to 100: 80-100 safe, 50-79 caution, 0-49 danger)
-8. label (short name like 'Granite Shelf', 'Loose Scree Patch', 'Wet Algae Stone')
-9. rationale (why to place or avoid boot here)
-
-Also provide:
-- surfaceGripIndex ('Normal' | 'Compromised' | 'Severe Hazard')
-- strideSequence (step-by-step stride instructions)
-- warningSummary (1-sentence urgent ground caution)
-
-Return strictly valid JSON.`;
-
-    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: {
         parts: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType
-            }
-          },
-          { text: prompt }
-        ]
+          { inlineData: { mimeType: image[1], data: image[2] } },
+          { text: 'List only recognizable surface features directly visible in the image. Return an empty list if none can be identified. Do not estimate slope, safety, hazards, friction, or foot placement.' },
+        ],
       },
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            surfaceGripIndex: { type: Type.STRING },
-            warningSummary: { type: Type.STRING },
-            strideSequence: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            targets: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  type: { type: Type.STRING },
-                  x: { type: Type.NUMBER },
-                  y: { type: Type.NUMBER },
-                  width: { type: Type.NUMBER },
-                  height: { type: Type.NUMBER },
-                  safetyPercentage: { type: Type.NUMBER },
-                  label: { type: Type.STRING },
-                  rationale: { type: Type.STRING }
-                },
-                required: ['id', 'type', 'x', 'y', 'width', 'height', 'safetyPercentage', 'label', 'rationale']
-              }
-            }
+            features: { type: Type.ARRAY, items: { type: Type.STRING, enum: terrainFeatures } },
           },
-          required: ['surfaceGripIndex', 'warningSummary', 'strideSequence', 'targets']
-        }
-      }
+          required: ['features'],
+        },
+      },
     });
-
-    const parsed = JSON.parse(response.text || '{}');
-    res.json(parsed);
-  } catch (err: any) {
-    console.warn('Footstep Gemini error, using fallback:', err.message);
-    res.json(generateFallbackFootstepAnalysis(slopeAngle));
+    const features: unknown = JSON.parse(response.text ?? '').features;
+    if (!Array.isArray(features) || !features.every(feature => terrainFeatures.includes(feature))) {
+      return res.status(503).json({ error: 'Terrain image analysis is unavailable' });
+    }
+    return res.json({ features: [...new Set(features)] });
+  } catch {
+    return res.status(503).json({ error: 'Terrain image analysis is unavailable' });
   }
 });
 
@@ -262,67 +200,6 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function generateFallbackSafetyAdvice(message: string, context: any): string {
-  const lower = message.toLowerCase();
-  if (lower.includes('shake') || lower.includes('earthquake') || lower.includes('rockfall')) {
-    return 'SEISMIC / ROCKFALL PROTOCOL: Move immediately away from vertical cliff bands, undercut crags, and scree chutes. Crouch on open solid ground with knees bent; protect your head with backpack or helmet.';
-  }
-  if (lower.includes('foot') || lower.includes('step') || lower.includes('slip') || lower.includes('scree')) {
-    return 'FOOT PLACEMENT RULE: Keep your center of gravity low over your lead foot. Avoid stepping on shiny, smooth wet rocks or loose rounded cobbles. Wedge your boot heel firmly into deeper scree when descending.';
-  }
-  if (lower.includes('lightning') || lower.includes('thunder') || lower.includes('storm')) {
-    return 'LIGHTNING EMERGENCY: Descend off the ridge line immediately. Do not shelter beneath isolated trees or shallow overhangs. Crouch on your sleeping pad or dry pack with feet pressed together.';
-  }
-  return 'BACKCOUNTRY GUIDANCE: Maintain steady hydration and check your pace against sunset. If footing becomes unstable or exposure exceeds comfort, halt and confirm safe bypass before proceeding.';
-}
-
-function generateFallbackFootstepAnalysis(slopeAngle: number) {
-  return {
-    surfaceGripIndex: slopeAngle > 25 ? 'Compromised' : 'Normal',
-    warningSummary: `Terrain shows variable scree over firm bedrock on a ${slopeAngle}° slope. Anchor boot heel on solid shelf.`,
-    strideSequence: [
-      'Step 1: Anchor lead right boot firmly onto Target A (solid granite shelf).',
-      'Step 2: Probe Target B with trekking pole before transferring full body weight.',
-      'Step 3: Strictly avoid Target C (loose shale slide channel).'
-    ],
-    targets: [
-      {
-        id: 'A',
-        type: 'safe_step',
-        x: 48,
-        y: 65,
-        label: 'Solid Bedrock Shelf',
-        width: 22,
-        height: 13,
-        safetyPercentage: 94,
-        rationale: 'Level granitic surface with coarse texture. High friction purchase for full boot sole.'
-      },
-      {
-        id: 'B',
-        type: 'caution_step',
-        x: 32,
-        y: 42,
-        label: 'Embedded Cobble',
-        width: 20,
-        height: 12,
-        safetyPercentage: 67,
-        rationale: 'Stone appears seated in dirt, but test with pole tip first to ensure no rotational roll.'
-      },
-      {
-        id: 'C',
-        type: 'danger_no_step',
-        x: 68,
-        y: 38,
-        label: 'Loose Scree Chute',
-        width: 24,
-        height: 16,
-        safetyPercentage: 12,
-        rationale: 'Unconsolidated gravel on downward incline. Will slide downhill under body weight.'
-      }
-    ]
-  };
 }
 
 app.listen(PORT, '0.0.0.0', () => {

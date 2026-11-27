@@ -53,14 +53,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className="text-center space-y-6 max-w-3xl mx-auto relative z-10">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase leading-none">
-            Where to step. <br />
+            Explore the trail. <br />
             <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
-              When to turn back.
+              Plan your hike.
             </span>
           </h1>
 
           <p className="text-sm sm:text-base text-stone-400 leading-relaxed max-w-2xl mx-auto">
-            SureStep combines camera-first AI footstep placement, live USGS earthquake & rockfall detection, offline topographic GPS tracking, and a persistent Firestore database of historical mountain accidents.
+            SureStep includes experimental trail photo analysis, USGS earthquake reports, GPS tracking, and a community incident archive.
           </p>
 
           {/* Primary Action Buttons */}
@@ -95,10 +95,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Footprints className="w-5 h-5" />
             </div>
             <h3 className="font-bold text-sm text-stone-100 group-hover:text-emerald-300 transition-colors">
-              AI Footstep Placement
+              Trail Photo Analysis
             </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Camera vision identifies safe granitic bedrock vs loose shale chutes, displaying interactive AR footstep markers on your screen.
+              Capture or upload a photo to identify possible visible surface features.
             </p>
             <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 pt-1">
               <span>Launch Ground HUD</span>
@@ -158,7 +158,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Firestore Accident Archive
             </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Persistent Firestore database storing previous accidents, rockfalls, and ranger rescue logs at that exact GPS location.
+              Browse unverified incident reports associated with selected trails.
             </p>
             <div className="text-[11px] font-bold text-purple-400 flex items-center gap-1 pt-1">
               <span>Browse Location Archive</span>

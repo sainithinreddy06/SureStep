@@ -611,7 +611,6 @@ export default function App() {
             <GroundVision
               currentCoords={currentCoords}
               hasDeviceGps={Boolean(gpsCoords)}
-              onLogHazardToMap={handleAddHazard}
               onNavigateToMap={() => setActiveTab('map')}
             />
           </div>
@@ -711,7 +710,7 @@ export default function App() {
                     <span>Inspect Ground Hazard Ahead</span>
                   </div>
                   <p className="text-stone-400 text-[11px] leading-relaxed">
-                    Encountered suspicious scree, slick algae, or loose rock? Switch directly to the Vision HUD to assess ground friction.
+                    Open Ground Vision to describe visible features in a trail photo.
                   </p>
                   <button
                     onClick={() => setActiveTab('vision')}
@@ -768,6 +767,8 @@ export default function App() {
 
             {/* Persistent Firestore Historical Incidents Archive */}
             <HistoricalIncidentDatabase
+              key={selectedTrail.id}
+              hasDeviceGps={Boolean(gpsCoords)}
               trailId={selectedTrail.id}
               trailName={selectedTrail.name}
               currentCoords={currentCoords}
@@ -832,8 +833,7 @@ export default function App() {
       <RangerAiChat
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        currentCoords={currentCoords}
-        elevationMeters={currentCoords.altitude || selectedTrail.baseElevationM}
+        currentCoords={gpsCoords}
         weatherSummary={recentWeather ? `Open-Meteo model: ${recentWeather.condition}, ${recentWeather.temperature}°C, ${recentWeather.windSpeed}km/h winds` : undefined}
       />
     </div>
