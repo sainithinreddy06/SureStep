@@ -2,7 +2,7 @@
 
 ## Mandatory Ponytail requirement
 
-The project owner requires the Ponytail skill to be located, read and applied throughout every engineering phase. At the 2026-11-27 audit, no Ponytail skill was present in the available skill catalog or workspace search. Do not invent or infer Ponytail instructions. Before any source-code implementation, locate and load the actual skill instructions. If it remains unavailable, stop source changes and record the blocker. This note records the requirement and the verified absence; it does not substitute for the skill.
+The project owner requires the Ponytail skill to be located, read and applied throughout every engineering phase. Locate and load the actual skill instructions before source-code implementation. If they are unavailable, record the blocker and pause source changes.
 
 ## Safety and data handling
 
