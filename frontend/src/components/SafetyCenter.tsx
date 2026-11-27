@@ -4,13 +4,15 @@ import { AlertOctagon, Check, Copy, Phone, Shield, Share2, MapPin, Compass, Hear
 
 interface SafetyCenterProps {
   currentCoords: Coordinates;
+  hasDeviceGps: boolean;
   safePoints: SafeLocation[];
   emergencyContacts: EmergencyContact[];
-  elevationMeters: number;
+  elevationMeters: number | null;
 }
 
 export const SafetyCenter: React.FC<SafetyCenterProps> = ({
   currentCoords,
+  hasDeviceGps,
   safePoints,
   emergencyContacts,
   elevationMeters
@@ -34,10 +36,13 @@ export const SafetyCenter: React.FC<SafetyCenterProps> = ({
   const latDms = toDms(currentCoords.latitude, true);
   const lngDms = toDms(currentCoords.longitude, false);
   const coordString = `${currentCoords.latitude.toFixed(6)}, ${currentCoords.longitude.toFixed(6)}`;
+  const altitudeLabel = elevationMeters == null ? 'Unavailable' : `${Math.round(elevationMeters)} m`;
+  const accuracyLabel = currentCoords.accuracy == null ? 'Unavailable' : `±${Math.round(currentCoords.accuracy)} m`;
 
   // Copy coordinates
   const handleCopyCoords = async () => {
-    const text = `${coordString} (Alt: ${Math.round(elevationMeters)}m, Acc: ±${Math.round(currentCoords.accuracy || 12)}m)`;
+    if (!hasDeviceGps) return;
+    const text = `${coordString} (Altitude: ${altitudeLabel}, Accuracy: ${accuracyLabel})`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedCoords(true);
@@ -76,7 +81,8 @@ export const SafetyCenter: React.FC<SafetyCenterProps> = ({
 I require emergency assistance.
 Coordinates: ${currentCoords.latitude.toFixed(6)}, ${currentCoords.longitude.toFixed(6)}
 DMS: ${latDms}, ${lngDms}
-Altitude: ${Math.round(elevationMeters)}m (±${Math.round(currentCoords.accuracy || 15)}m accuracy)
+Altitude: ${altitudeLabel}
+GPS accuracy: ${accuracyLabel}
 Map: ${mapsLink}
 Timestamp: ${new Date().toISOString()}
 Message prepared via SureStep.`;
@@ -128,7 +134,7 @@ Message prepared via SureStep.`;
               Emergency SOS Beacon Flow
             </h2>
             <p className="text-xs text-stone-300">
-              Prepares high-precision GPS distress coordinates for emergency services. Never sends silently without user confirmation.
+              Prepares a message with your device GPS coordinates for sharing.
             </p>
           </div>
         </div>
@@ -137,13 +143,14 @@ Message prepared via SureStep.`;
           <div className="mt-4">
             <button
               onClick={handleStartSosArming}
+              disabled={!hasDeviceGps}
               className="w-full py-3.5 px-4 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-950/60 transition-all text-sm uppercase tracking-wider"
             >
               <AlertOctagon className="w-5 h-5" />
               Arm Deliberate Emergency SOS (2-Step)
             </button>
             <div className="text-[11px] text-stone-400 text-center mt-2">
-              Features a 5-second countdown to prevent accidental activation.
+              {hasDeviceGps ? 'A 5-second countdown lets you cancel before sharing.' : 'Connect device GPS to prepare an emergency location.'}
             </div>
           </div>
         )}
@@ -157,7 +164,7 @@ Message prepared via SureStep.`;
               {countdown}s
             </div>
             <p className="text-xs text-red-200 mb-4">
-              Opening device share sheet with your verified location in {countdown} seconds...
+              Opening device share sheet with your device location in {countdown} seconds...
             </p>
 
             <div className="flex gap-2.5">
@@ -221,10 +228,11 @@ Message prepared via SureStep.`;
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-sm text-stone-100">Live Backcountry Coordinates</h3>
+            <h3 className="font-bold text-sm text-stone-100">{hasDeviceGps ? 'Device GPS coordinates' : 'Simulated trail coordinates'}</h3>
           </div>
           <button
             onClick={handleCopyCoords}
+            disabled={!hasDeviceGps}
             className="px-2.5 py-1 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 rounded-md border border-stone-700 flex items-center gap-1.5 transition-colors"
           >
             {copiedCoords ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -253,15 +261,15 @@ Message prepared via SureStep.`;
         <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
           <div className="bg-stone-950/40 p-2 rounded border border-stone-800/60">
             <span className="text-[10px] text-stone-400 block">Altitude</span>
-            <span className="font-mono font-bold text-stone-200">{Math.round(elevationMeters)}m</span>
+            <span className="font-mono font-bold text-stone-200">{altitudeLabel}</span>
           </div>
           <div className="bg-stone-950/40 p-2 rounded border border-stone-800/60">
             <span className="text-[10px] text-stone-400 block">Precision</span>
-            <span className="font-mono font-bold text-stone-200">±{Math.round(currentCoords.accuracy || 12)}m</span>
+            <span className="font-mono font-bold text-stone-200">{accuracyLabel}</span>
           </div>
           <div className="bg-stone-950/40 p-2 rounded border border-stone-800/60">
             <span className="text-[10px] text-stone-400 block">Heading</span>
-            <span className="font-mono font-bold text-stone-200">{Math.round(currentCoords.heading || 0)}°</span>
+            <span className="font-mono font-bold text-stone-200">{currentCoords.heading == null ? 'Unavailable' : `${Math.round(currentCoords.heading)}°`}</span>
           </div>
         </div>
       </div>

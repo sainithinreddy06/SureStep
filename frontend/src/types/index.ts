@@ -43,9 +43,8 @@ export interface WeatherData {
   precipitationProbability: number; // %
   uvIndex: number;
   elevation: number; // meters
-  lastUpdated: number; // epoch ms
-  isStale: boolean;
-  provider: 'Open-Meteo' | 'Cached Backup' | 'Custom API';
+  validAt: number; // Open-Meteo model time in epoch ms
+  isCached: boolean;
   warnings: string[];
 }
 

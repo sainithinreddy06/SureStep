@@ -24,10 +24,10 @@ export const TerrainMLCard: React.FC<TerrainMLCardProps> = ({ prediction, loadin
             <span className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <BrainCircuit className="w-4 h-4 text-emerald-400" />
             </span>
-            <span>AI Terrain Risk Prediction</span>
+            <span>Demo Terrain Risk Prediction</span>
           </div>
           <p className="text-xs text-stone-400 mt-2 leading-relaxed">
-            Machine-learning prediction combining terrain, weather, elevation and hazard context.
+            Experimental model output using simulated terrain and hazard inputs.
           </p>
         </div>
         <span className="text-[10px] font-mono text-stone-500 border border-stone-800 rounded-full px-2 py-1">

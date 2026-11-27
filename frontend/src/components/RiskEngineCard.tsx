@@ -65,13 +65,13 @@ export const RiskEngineCard: React.FC<RiskEngineCardProps> = ({ assessment, comp
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-stone-100 text-base tracking-tight">{theme.title}</h3>
+              <h3 className="font-bold text-stone-100 text-base tracking-tight">Demo estimate · {theme.title}</h3>
               <span className="text-xs text-stone-400 font-mono tabular-nums">
                 Score {assessment.overallScore}/100
               </span>
             </div>
             <div className="text-xs text-stone-400 flex items-center gap-2 mt-0.5">
-              <span>Confidence: <strong className="text-stone-200 font-mono">{assessment.confidence}%</strong></span>
+              <span>Heuristic confidence: <strong className="text-stone-200 font-mono">{assessment.confidence}%</strong></span>
               {assessment.cooldownActive && (
                 <>
                   <span aria-hidden="true">·</span>
@@ -93,11 +93,6 @@ export const RiskEngineCard: React.FC<RiskEngineCardProps> = ({ assessment, comp
         </button>
       </div>
 
-      {/* Primary Tactical Recommendation */}
-      <div className="mt-3.5 p-3 rounded-lg bg-stone-900/90 border border-stone-800 text-xs leading-relaxed text-stone-200">
-        <strong className="text-stone-100 font-semibold block mb-1">Recommended Action:</strong>
-        {assessment.primaryRecommendation}
-      </div>
 
       {/* Confidence Penalties if any */}
       {assessment.confidencePenalties.length > 0 && (

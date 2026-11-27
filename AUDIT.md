@@ -192,3 +192,5 @@ The audit did not intentionally write production data, submit a hazard, start a 
 
 - SAF-02 earthquake path addressed on the Phase 1 branch. Invalid coordinates return 400. Upstream failures return 503 without fabricated events. The monitor requires device GPS and distinguishes an unavailable feed from a successful empty feed.
 - Seven synthetic checks passed against the backend handler. Full frontend build and browser verification are outstanding. Camera and Ranger fallbacks, other demo signals, history seeding, and SOS remain open. The production deployment was not changed.
+
+- SAF-01 and DATA-01 follow-up: device and demo positions are tracked separately and labeled in the dashboard, map, HUD, and safety view. Both risk cards label simulated inputs. The SOS location tools require device GPS. Weather displays the Open-Meteo model time and labels saved or stale data. Weather failures without a same-location snapshot now show unavailable. The weather regression test passed with a mocked provider and storage.

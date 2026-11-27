@@ -12,6 +12,8 @@
 
 ### Phase 1 — Safety and data integrity
 
+- Second checkpoint: label device and demo positions, mark both risk estimates as demo output, require device GPS for local weather and SOS location sharing, and display Open-Meteo model time and cache status. Mocked weather regression passed. Full browser and build verification is tracked separately.
+
 - First checkpoint: the USGS earthquake monitor requires device GPS, distinguishes an unavailable feed from an empty feed, and no longer shows fabricated earthquakes. Seven synthetic backend checks passed. Frontend build and browser verification are outstanding.
 
 - Make demo mode explicit; stop simulated GPS/weather/risk from appearing live.

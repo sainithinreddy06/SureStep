@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import {
   Eye,
-  Minimize2,
   Maximize2,
   X,
   Compass,
   Mountain,
-  Footprints,
-  Activity,
-  Layers,
   ChevronDown,
   ChevronUp,
   ArrowRight
@@ -17,6 +13,7 @@ import { Coordinates } from '../types';
 
 interface FloatingWindowHUDProps {
   currentCoords: Coordinates;
+  hasDeviceGps: boolean;
   onOpenFullHUD: () => void;
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +21,7 @@ interface FloatingWindowHUDProps {
 
 export const FloatingWindowHUD: React.FC<FloatingWindowHUDProps> = ({
   currentCoords,
+  hasDeviceGps,
   onOpenFullHUD,
   isOpen,
   onClose
@@ -31,6 +29,10 @@ export const FloatingWindowHUD: React.FC<FloatingWindowHUDProps> = ({
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   if (!isOpen) return null;
+
+  const positionLabel = hasDeviceGps ? 'Device GPS' : 'Demo position';
+  const elevationLabel = currentCoords.altitude == null ? 'Elevation unavailable' : `${Math.round(currentCoords.altitude)} m elevation`;
+  const headingLabel = currentCoords.heading == null ? 'Heading unavailable' : `${Math.round(currentCoords.heading)}° heading`;
 
   return (
     <div
@@ -86,15 +88,10 @@ export const FloatingWindowHUD: React.FC<FloatingWindowHUDProps> = ({
                 <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
               </div>
               <span className="text-[9px] font-mono text-emerald-300 bg-stone-950/80 px-1.5 py-0.5 rounded">
-                SLOPE ~22° · LIVE GPS
+                {positionLabel}
               </span>
             </div>
 
-            {/* Footstep Indicator Tag */}
-            <div className="absolute bottom-1.5 left-2 bg-emerald-950/80 border border-emerald-700/60 px-1.5 py-0.5 rounded text-[9px] text-emerald-300 font-bold flex items-center gap-1">
-              <Footprints className="w-3 h-3" />
-              <span>Target A: Solid Step</span>
-            </div>
 
             <div className="absolute top-1.5 right-2 bg-stone-950/80 px-1.5 py-0.5 rounded text-[9px] text-stone-400 group-hover:text-emerald-300 transition-colors font-mono">
               Click to Open ↗
@@ -105,11 +102,11 @@ export const FloatingWindowHUD: React.FC<FloatingWindowHUDProps> = ({
           <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
             <div className="p-1.5 bg-stone-950/70 border border-stone-800 rounded-lg flex items-center gap-1 text-stone-300">
               <Mountain className="w-3 h-3 text-stone-500" />
-              <span>{Math.round(currentCoords.altitude || 1840)}m Elev</span>
+              <span>{elevationLabel}</span>
             </div>
             <div className="p-1.5 bg-stone-950/70 border border-stone-800 rounded-lg flex items-center gap-1 text-stone-300">
               <Compass className="w-3 h-3 text-stone-500" />
-              <span>{Math.round(currentCoords.heading || 45)}° Heading</span>
+              <span>{headingLabel}</span>
             </div>
           </div>
 
@@ -131,7 +128,7 @@ export const FloatingWindowHUD: React.FC<FloatingWindowHUDProps> = ({
           title="Click to open whole project"
         >
           <span className="font-mono text-emerald-300 font-bold">
-            {Math.round(currentCoords.altitude || 1840)}m · 22°
+            {positionLabel}
           </span>
           <span className="text-[10px] text-emerald-400 font-extrabold flex items-center gap-1">
             <span>Open Project</span>

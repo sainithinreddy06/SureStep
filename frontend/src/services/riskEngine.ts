@@ -31,7 +31,7 @@ export function calculateTerrainRisk(inputs: RiskEngineInputs): RiskAssessment {
   // 1. Evaluate Slope / Grade (25%)
   // Gentle (<8°): 10-25; Moderate (8°-18°): 25-50; Steep (18°-30°): 50-80; Extreme (>30°): 85-100
   let slopeScore = Math.min(100, Math.round((Math.max(0, slopeDegrees) / 38) * 100));
-  let slopeSummary = `Slope measured at ~${Math.round(slopeDegrees)}° grade. `;
+  let slopeSummary = `Simulated slope: ~${Math.round(slopeDegrees)}° grade. `;
   if (slopeDegrees > 28) {
     slopeScore = Math.max(85, slopeScore);
     slopeSummary += 'Steep technical grade, heightened slip and slide potential.';
@@ -46,14 +46,10 @@ export function calculateTerrainRisk(inputs: RiskEngineInputs): RiskAssessment {
   let weatherSummary = 'Clear conditions with low atmospheric risk.';
   if (!weather) {
     confidence -= 25;
-    penalties.push('Live weather unavailable (confidence -25%)');
+    penalties.push('Current weather model data unavailable (confidence -25%)');
     weatherScore = 40;
-    weatherSummary = 'No live meteorological feed; unverified mountain atmospheric risk.';
+    weatherSummary = 'Current model conditions are unavailable.';
   } else {
-    if (weather.isStale) {
-      confidence -= 15;
-      penalties.push('Weather reading stale (>1h old, confidence -15%)');
-    }
 
     let wScore = 10;
     if (weather.condition === 'thunderstorm') {

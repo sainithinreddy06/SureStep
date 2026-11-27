@@ -10,7 +10,7 @@ import {
   WeatherData
 } from './types';
 import { MOCK_TRAILS } from './services/mockTrails';
-import { fetchLiveWeather } from './services/weatherService';
+import { fetchLiveWeather, WEATHER_STALE_MS } from './services/weatherService';
 import { calculateTerrainRisk } from './services/riskEngine';
 import { predictTerrainRisk, TerrainRiskPrediction } from './services/mlService';
 import {
@@ -80,7 +80,7 @@ export default function App() {
 
   // GPS & Position State
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('simulating');
-  const [currentCoords, setCurrentCoords] = useState<Coordinates>({
+  const [demoCoords, setDemoCoords] = useState<Coordinates>({
     latitude: MOCK_TRAILS[0].coordinates[0][0],
     longitude: MOCK_TRAILS[0].coordinates[0][1],
     altitude: MOCK_TRAILS[0].baseElevationM,
@@ -89,6 +89,10 @@ export default function App() {
     speed: 1.2,
     timestamp: Date.now()
   });
+
+  const [deviceGpsCoords, setDeviceGpsCoords] = useState<Coordinates | null>(null);
+  const gpsCoords = gpsStatus === 'tracking' ? deviceGpsCoords : null;
+  const currentCoords = gpsCoords ?? demoCoords;
 
   // Trail Simulation State (indoor / testing fallback)
   const [simulationIndex, setSimulationIndex] = useState<number>(0);
@@ -101,8 +105,8 @@ export default function App() {
   const [savedSessions, setSavedSessions] = useState<HikeSession[]>(getSavedSessions);
 
   // Weather & Risk
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
+  const [weatherRefresh, setWeatherRefresh] = useState(0);
+  const [weatherResult, setWeatherResult] = useState<{ key: string; data: WeatherData | null } | null>(null);
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
   const [currentSlope, setCurrentSlope] = useState<number>(12);
   const [mlPrediction, setMlPrediction] = useState<TerrainRiskPrediction | null>(null);
@@ -123,6 +127,12 @@ export default function App() {
   });
   const [isSimulatedOffline, setIsSimulatedOffline] = useState<boolean>(false);
   const isEffectivelyOffline = isNetworkOffline || isSimulatedOffline;
+  const weatherLat = gpsCoords ? Number(gpsCoords.latitude.toFixed(3)) : undefined;
+  const weatherLng = gpsCoords ? Number(gpsCoords.longitude.toFixed(3)) : undefined;
+  const weatherKey = gpsCoords && !showLandingPage ? `${weatherLat}:${weatherLng}:${weatherRefresh}:${isSimulatedOffline}` : null;
+  const weather = weatherKey && weatherResult?.key === weatherKey ? weatherResult.data : null;
+  const weatherLoading = Boolean(weatherKey && !isSimulatedOffline && weatherResult?.key !== weatherKey);
+  const recentWeather = weather && !weather.isCached && Date.now() - weather.validAt <= WEATHER_STALE_MS ? weather : null;
 
   // Listen to browser network changes
   useEffect(() => {
@@ -139,11 +149,11 @@ export default function App() {
   }, []);
 
   // Connection retry handler
-  const handleRetryConnection = async () => {
+  const handleRetryConnection = () => {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       setIsNetworkOffline(false);
       setIsSimulatedOffline(false);
-      await loadWeather(currentCoords);
+      setWeatherRefresh(value => value + 1);
     } else {
       setIsNetworkOffline(true);
     }
@@ -184,22 +194,20 @@ export default function App() {
     return () => document.body.classList.remove('outdoor-mode');
   }, [settings.outdoorHighContrast]);
 
-  // Fetch Weather
-  const loadWeather = useCallback(async (coords: Coordinates) => {
-    setWeatherLoading(true);
-    try {
-      const data = await fetchLiveWeather(coords);
-      setWeather(data);
-    } catch (err) {
-      console.error('Weather load error:', err);
-    } finally {
-      setWeatherLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    if (!weatherKey || weatherLat === undefined || weatherLng === undefined || isSimulatedOffline) return;
+    const controller = new AbortController();
+    void fetchLiveWeather(weatherLat, weatherLng, controller.signal).then(data => {
+      if (!controller.signal.aborted) setWeatherResult({ key: weatherKey, data });
+    });
+    return () => controller.abort();
+  }, [weatherKey, weatherLat, weatherLng, isSimulatedOffline]);
 
   useEffect(() => {
-    loadWeather(currentCoords);
-  }, [selectedTrail.id]);
+    if (!weatherKey || isSimulatedOffline) return;
+    const timer = window.setTimeout(() => setWeatherRefresh(value => value + 1), 15 * 60 * 1000);
+    return () => window.clearTimeout(timer);
+  }, [weatherKey, isSimulatedOffline]);
 
   // Recalculate Risk Engine
   useEffect(() => {
@@ -215,16 +223,16 @@ export default function App() {
         ...currentCoords,
         altitude: elev
       },
-      weather,
+      weather: recentWeather,
       slopeDegrees: nextSlope,
       trailDifficulty: selectedTrail.difficulty,
       activeHazards: allHazards,
-      gpsAccuracyMeters: currentCoords.accuracy,
+      gpsAccuracyMeters: gpsCoords?.accuracy,
       previousLevel: riskAssessment?.level
     });
 
     setRiskAssessment(assessment);
-  }, [currentCoords, weather, allHazards.length, selectedTrail.id, simulationIndex]);
+  }, [currentCoords, recentWeather, gpsCoords, allHazards.length, selectedTrail.id, simulationIndex]);
 
   // ML Terrain Risk Prediction
   useEffect(() => {
@@ -246,10 +254,10 @@ export default function App() {
         const prediction = await predictTerrainRisk({
           elevation: Number(currentCoords.altitude || selectedTrail.baseElevationM),
           slope: currentSlope,
-          temperature: weather?.temperature ?? 15,
-          humidity: weather?.humidity ?? 55,
-          rainfall: weather?.precipitation ?? 0,
-          wind_speed: weather?.windSpeed ?? 15,
+          temperature: recentWeather?.temperature ?? 15,
+          humidity: recentWeather?.humidity ?? 55,
+          rainfall: recentWeather?.precipitation ?? 0,
+          wind_speed: recentWeather?.windSpeed ?? 15,
           earthquake_activity: Math.min(1, allHazards.filter((h) => h.type === 'rockfall').length / 10),
           historical_incidents: Math.min(12, selectedTrail.knownHazards.length),
           terrain_type: terrainType,
@@ -271,7 +279,7 @@ export default function App() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [currentCoords.altitude, currentSlope, weather?.temperature, weather?.humidity, weather?.precipitation, weather?.windSpeed, selectedTrail.id, selectedTrail.difficulty, selectedTrail.baseElevationM, selectedTrail.knownHazards.length, allHazards.length]);
+  }, [currentCoords.altitude, currentSlope, recentWeather?.temperature, recentWeather?.humidity, recentWeather?.precipitation, recentWeather?.windSpeed, selectedTrail.id, selectedTrail.difficulty, selectedTrail.baseElevationM, selectedTrail.knownHazards.length, allHazards.length]);
 
   // Browser Geolocation Watcher
   const watchIdRef = useRef<number | null>(null);
@@ -297,7 +305,7 @@ export default function App() {
           speed: pos.coords.speed,
           timestamp: pos.timestamp
         };
-        setCurrentCoords(coords);
+        setDeviceGpsCoords(coords);
         setGpsStatus('tracking');
         setGpsDeniedAlert(false);
 
@@ -307,6 +315,7 @@ export default function App() {
       },
       (err) => {
         console.warn('Geolocation error:', err);
+        stopBrowserGps();
         setGpsStatus('denied');
         setGpsDeniedAlert(true);
         setIsSimulating(true);
@@ -320,6 +329,8 @@ export default function App() {
   };
 
   const stopBrowserGps = () => {
+    setWeatherResult(null);
+
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -346,7 +357,7 @@ export default function App() {
         timestamp: Date.now()
       };
 
-      setCurrentCoords(nextCoords);
+      setDemoCoords(nextCoords);
       handleNewLocationPoint(nextCoords);
 
       return nextIdx;
@@ -486,9 +497,8 @@ export default function App() {
       speed: 0,
       timestamp: Date.now()
     };
-    if (gpsStatus !== 'tracking') setCurrentCoords(newCoords);
-    setBreadcrumbs([newCoords]);
-    loadWeather(newCoords);
+    setDemoCoords(newCoords);
+    setBreadcrumbs([gpsCoords ?? newCoords]);
   };
 
   if (showLandingPage) {
@@ -547,7 +557,14 @@ export default function App() {
           onToggleSimulateOffline={() => setIsSimulatedOffline(v => !v)}
         />
 
-          <NaturalHazardAlerts currentCoords={gpsStatus === 'tracking' ? currentCoords : null} />
+        <div role="status" className="rounded-lg border border-stone-800 bg-stone-900 px-3 py-2 text-xs text-stone-300">
+          <strong className={gpsCoords ? 'text-emerald-300' : 'text-amber-300'}>
+            {gpsCoords ? 'Device GPS active' : gpsStatus === 'requesting' ? 'Waiting for GPS · Demo position shown' : 'Demo mode · Simulated position'}
+          </strong>
+          {' · Terrain and risk values are experimental estimates.'}
+        </div>
+
+        <NaturalHazardAlerts currentCoords={gpsCoords} />
 
         {/* GPS Permission Warning Banner if Denied */}
         {gpsDeniedAlert && (
@@ -555,7 +572,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                Device GPS permission was denied or is unavailable. Switched to high-precision trail simulation mode ({selectedTrail.name}) so you can explore all features safely.
+                Device GPS is unavailable. The position shown is a simulated waypoint on {selectedTrail.name}.
               </span>
             </div>
             <button
@@ -593,6 +610,7 @@ export default function App() {
             {/* Primary Camera-First HUD */}
             <GroundVision
               currentCoords={currentCoords}
+              hasDeviceGps={Boolean(gpsCoords)}
               onLogHazardToMap={handleAddHazard}
               onNavigateToMap={() => setActiveTab('map')}
             />
@@ -633,6 +651,7 @@ export default function App() {
                       startBrowserGps();
                     }
                   }}
+                  disabled={gpsStatus === 'requesting'}
                   className={`px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors border ${
                     gpsStatus === 'tracking'
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
@@ -640,7 +659,7 @@ export default function App() {
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
-                  {gpsStatus === 'tracking' ? 'Live Satellite GPS' : 'Connect Device GPS'}
+                  {gpsCoords ? 'Switch to Demo Position' : gpsStatus === 'requesting' ? 'Connecting Device GPS' : 'Connect Device GPS'}
                 </button>
 
                 {isSimulating && (
@@ -650,7 +669,7 @@ export default function App() {
                     title="Advance to next trail waypoint"
                   >
                     <Footprints className="w-3.5 h-3.5" />
-                    <span>Advance Step</span>
+                    <span>Advance Demo Step</span>
                   </button>
                 )}
               </div>
@@ -665,7 +684,7 @@ export default function App() {
                   breadcrumbs={breadcrumbs}
                   hazards={allHazards}
                   safePoints={allSafePoints}
-                  isTracking={gpsStatus === 'tracking' || (isSimulating && currentSession?.status === 'active')}
+                  hasDeviceGps={Boolean(gpsCoords)}
                   isOffline={isEffectivelyOffline}
                   onOpenReportModal={() => setIsReportModalOpen(true)}
                   units={settings.units}
@@ -715,7 +734,7 @@ export default function App() {
                 Risk Engine & Mountain Telemetry
               </h2>
               <p className="text-xs text-stone-400 leading-relaxed">
-                Combines transparent 5-factor mathematical weighting (Slope 25%, Weather 20%, Trail Condition 20%, Known Hazards 20%, Elevation 15%) with live meteorological readings.
+                Both risk tools use simulated terrain inputs. They show how the models work and cannot establish current trail safety.
               </p>
             </div>
 
@@ -734,7 +753,9 @@ export default function App() {
             <WeatherWidget
               weather={weather}
               isLoading={weatherLoading}
-              onRefresh={() => loadWeather(currentCoords)}
+              hasDeviceGps={Boolean(gpsCoords)}
+              isSimulatedOffline={isSimulatedOffline}
+              onRefresh={() => setWeatherRefresh(value => value + 1)}
               units={settings.units}
             />
 
@@ -761,7 +782,9 @@ export default function App() {
               currentCoords={currentCoords}
               safePoints={allSafePoints}
               emergencyContacts={emergencyContacts}
-              elevationMeters={currentCoords.altitude || selectedTrail.baseElevationM}
+              key={gpsCoords ? 'device' : 'demo'}
+              hasDeviceGps={Boolean(gpsCoords)}
+              elevationMeters={currentCoords.altitude ?? null}
             />
           </div>
         )}
@@ -772,6 +795,7 @@ export default function App() {
         isOpen={isFloatingWindowOpen}
         onClose={() => setIsFloatingWindowOpen(false)}
         currentCoords={currentCoords}
+        hasDeviceGps={Boolean(gpsCoords)}
         onOpenFullHUD={() => {
           setShowLandingPage(false);
           setActiveTab('vision');
@@ -792,7 +816,6 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        hasCriticalAlert={riskAssessment?.level === 'critical'}
       />
 
       {/* Floating Ranger AI Copilot Button (Direct Thumb Access) */}
@@ -811,8 +834,7 @@ export default function App() {
         onClose={() => setIsChatOpen(false)}
         currentCoords={currentCoords}
         elevationMeters={currentCoords.altitude || selectedTrail.baseElevationM}
-        weatherSummary={weather ? `${weather.condition}, ${weather.temperature}°C, ${weather.windSpeed}km/h winds` : undefined}
-        riskLevel={riskAssessment?.level}
+        weatherSummary={recentWeather ? `Open-Meteo model: ${recentWeather.condition}, ${recentWeather.temperature}°C, ${recentWeather.windSpeed}km/h winds` : undefined}
       />
     </div>
   );
