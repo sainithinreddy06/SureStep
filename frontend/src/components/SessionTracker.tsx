@@ -13,6 +13,13 @@ interface SessionTrackerProps {
   units: 'metric' | 'imperial';
 }
 
+function trackSource(session: HikeSession): string {
+  const sources = new Set(session.breadcrumbs.map(point => point.source));
+  if (sources.has(undefined) || !sources.size) return 'Location source unknown';
+  if (sources.size > 1) return 'Mixed device and demo track';
+  return sources.has('demo') ? 'Demo track' : 'Device GPS track';
+}
+
 export const SessionTracker: React.FC<SessionTrackerProps> = ({
   currentSession,
   onStartSession,
@@ -68,17 +75,17 @@ export const SessionTracker: React.FC<SessionTrackerProps> = ({
   // Export GPX summary
   const exportSessionGpx = (session: HikeSession) => {
     const pointsXml = session.breadcrumbs
-      .map(b => `      <trkpt lat="${b.latitude}" lon="${b.longitude}"><ele>${b.altitude || 0}</ele><time>${new Date(b.timestamp || session.startTime).toISOString()}</time></trkpt>`)
+      .map(b => `      <trkpt lat="${b.latitude}" lon="${b.longitude}">${b.altitude == null ? '' : `<ele>${b.altitude}</ele>`}<time>${new Date(b.timestamp || session.startTime).toISOString()}</time></trkpt>`)
       .join('\n');
 
     const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="SureStep">
   <metadata>
-    <name>${session.trailName}</name>
+    <name>${session.trailName} · ${trackSource(session)}</name>
     <time>${new Date(session.startTime).toISOString()}</time>
   </metadata>
   <trk>
-    <name>${session.trailName}</name>
+    <name>${session.trailName} · ${trackSource(session)}</name>
     <trkseg>
 ${pointsXml}
     </trkseg>
@@ -102,7 +109,7 @@ ${pointsXml}
           <div className="flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full ${currentSession?.status === 'active' ? 'bg-emerald-500 animate-pulse' : currentSession?.status === 'paused' ? 'bg-amber-400' : 'bg-stone-500'}`} />
             <h3 className="font-bold text-sm text-stone-100">
-              {currentSession ? currentSession.trailName : 'Backcountry Hike Session'}
+              {currentSession ? `${currentSession.trailName} · ${trackSource(currentSession)}` : 'Backcountry Hike Session'}
             </h3>
           </div>
 
@@ -150,7 +157,7 @@ ${pointsXml}
           <div className="p-2.5 bg-stone-950/70 border border-stone-800/80 rounded-lg">
             <div className="text-stone-400 text-[11px] flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
-              Max Risk
+              Peak demo risk estimate
             </div>
             <div className="text-base font-bold font-mono text-stone-100 mt-0.5">
               {currentSession ? getRiskBadge(currentSession.maxRiskLevel) : 'None'}
@@ -231,7 +238,7 @@ ${pointsXml}
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <strong className="text-stone-200">{session.trailName}</strong>
+                      <strong className="text-stone-200">{session.trailName} · {trackSource(session)}</strong>
                       <span className="text-[10px] text-stone-400">
                         {new Date(session.startTime).toLocaleDateString()}
                       </span>
@@ -244,7 +251,7 @@ ${pointsXml}
                       <span>·</span>
                       <span>+{formatElevation(session.elevationGainM)}</span>
                       <span>·</span>
-                      <span>Risk: {getRiskBadge(session.maxRiskLevel)}</span>
+                      <span>Demo risk estimate: {getRiskBadge(session.maxRiskLevel)}</span>
                     </div>
                   </div>
 

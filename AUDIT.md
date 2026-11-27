@@ -202,3 +202,5 @@ The audit did not intentionally write production data, submit a hazard, start a 
 - DATA-02 follow-up: removed client-side verification actions and counts. Local hazard notes require device GPS, preserve the draft on storage failure, and display their source in the list and map. The hazard popup renders report contents as plain text. Server-side moderation remains a Phase 2 item.
 
 - SOS-01 map follow-up: sample trail waypoints are labeled as unverified. Their popups omit unverified phone numbers and render stored fields as text. The map no longer presents the first sample waypoint as the nearest refuge.
+
+- Phase 1 closeout: removed simulated telemetry from the landing screen and offline banner, exposed explicit demo and device GPS entry points, removed a legacy verification-count claim in the risk breakdown, and removed successful ML scores for missing model or inputs. The terrain model remains experimental and its tree agreement is uncalibrated.

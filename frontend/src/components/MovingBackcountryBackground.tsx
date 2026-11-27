@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { Footprints, Shield, Compass, Mountain, AlertCircle } from 'lucide-react';
 
 interface MovingBackcountryBackgroundProps {
   className?: string;
@@ -165,34 +164,6 @@ export const MovingBackcountryBackground: React.FC<MovingBackcountryBackgroundPr
 
       {/* Real-time HTML5 Topographic & AI Terrain Mesh Canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-80" />
-
-      {/* Floating Tactical Project Elements moving in the background */}
-      {/* 1. Moving AR Footstep Placement Beacons */}
-      <div className="absolute top-[28%] left-[12%] animate-float-slow hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-950/80 border border-emerald-500/40 text-[10px] font-mono text-emerald-300 backdrop-blur-md shadow-lg shadow-emerald-950/50">
-        <Footprints className="w-3.5 h-3.5 text-emerald-400" />
-        <span>STEP CONFIDENCE 96% · SOLID BEDROCK</span>
-      </div>
-
-      <div className="absolute top-[48%] right-[14%] animate-float-delayed hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-950/80 border border-emerald-500/40 text-[10px] font-mono text-emerald-300 backdrop-blur-md shadow-lg shadow-emerald-950/50">
-        <Shield className="w-3.5 h-3.5 text-emerald-400" />
-        <span>SLOPE STABILITY: OPTIMAL (11.2°)</span>
-      </div>
-
-      <div className="absolute bottom-[22%] left-[18%] animate-float-slow hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-stone-950/80 border border-amber-500/40 text-[10px] font-mono text-amber-300 backdrop-blur-md shadow-lg">
-        <AlertCircle className="w-3 h-3 text-amber-400" />
-        <span>AVOID LOOSE TALUS CHUTE (EAST)</span>
-      </div>
-
-      {/* Tactical Compass & Altimeter HUD Stamp */}
-      <div className="absolute top-20 right-8 hidden xl:flex flex-col items-end gap-1 text-[10px] font-mono text-stone-500 select-none">
-        <div className="flex items-center gap-1 text-emerald-400/80">
-          <Compass className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '40s' }} />
-          <span>NAV 328° NW · FIX: SATELLITE 3D</span>
-        </div>
-        <div className="text-stone-400/60">
-          SURESTEP LiDAR ACTIVE MESH
-        </div>
-      </div>
 
       {/* Multilayered Cinematic Vignette Gradients (Dark center & borders for 100% crystal text readability) */}
       <div className="absolute inset-0 bg-gradient-to-b from-stone-950/90 via-stone-950/65 to-stone-950/95" />

@@ -102,7 +102,7 @@ export function calculateTerrainRisk(inputs: RiskEngineInputs): RiskAssessment {
 
   if (nearbyCritical.length > 0) {
     hazardScore = 92;
-    hazardSummary = `CRITICAL HAZARD IN PROXIMITY: ${nearbyCritical[0].title}. Verified by ${nearbyCritical[0].verifiedCount} reports.`;
+    hazardSummary = `Demo model input: nearby unverified entry “${nearbyCritical[0].title}”.`;
   } else if (nearbyHigh.length > 0) {
     hazardScore = 72;
     hazardSummary = `High severity alert active: ${nearbyHigh[0].title}. Caution mandatory.`;

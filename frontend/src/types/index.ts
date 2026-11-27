@@ -3,6 +3,7 @@
  */
 
 export interface Coordinates {
+  source?: 'demo' | 'device';
   latitude: number;
   longitude: number;
   altitude?: number | null;

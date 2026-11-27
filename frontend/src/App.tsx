@@ -80,6 +80,7 @@ export default function App() {
   // GPS & Position State
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('simulating');
   const [demoCoords, setDemoCoords] = useState<Coordinates>({
+    source: 'demo',
     latitude: MOCK_TRAILS[0].coordinates[0][0],
     longitude: MOCK_TRAILS[0].coordinates[0][1],
     altitude: MOCK_TRAILS[0].baseElevationM,
@@ -235,6 +236,13 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!recentWeather) {
+      setMlPrediction(null);
+      setMlLoading(false);
+      setMlError('Current weather inputs are unavailable');
+      return;
+    }
+
     const runTerrainModel = async () => {
       setMlLoading(true);
       setMlError(null);
@@ -249,12 +257,12 @@ export default function App() {
               : 'forest';
 
         const prediction = await predictTerrainRisk({
-          elevation: Number(currentCoords.altitude || selectedTrail.baseElevationM),
+          elevation: Number(currentCoords.altitude ?? selectedTrail.baseElevationM),
           slope: currentSlope,
-          temperature: recentWeather?.temperature ?? 15,
-          humidity: recentWeather?.humidity ?? 55,
-          rainfall: recentWeather?.precipitation ?? 0,
-          wind_speed: recentWeather?.windSpeed ?? 15,
+          temperature: recentWeather.temperature,
+          humidity: recentWeather.humidity,
+          rainfall: recentWeather.precipitation,
+          wind_speed: recentWeather.windSpeed,
           earthquake_activity: Math.min(1, allHazards.filter((h) => h.type === 'rockfall').length / 10),
           historical_incidents: Math.min(12, selectedTrail.knownHazards.length),
           terrain_type: terrainType,
@@ -294,6 +302,7 @@ export default function App() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const coords: Coordinates = {
+          source: 'device',
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           altitude: pos.coords.altitude,
@@ -345,6 +354,7 @@ export default function App() {
       const elev = selectedTrail.baseElevationM + (selectedTrail.maxElevationM - selectedTrail.baseElevationM) * Math.sin(distFraction * Math.PI);
 
       const nextCoords: Coordinates = {
+        source: 'demo',
         latitude: point[0],
         longitude: point[1],
         altitude: elev,
@@ -430,8 +440,8 @@ export default function App() {
       durationSeconds: 0,
       distanceMeters: 0,
       elevationGainM: 0,
-      currentElevationM: currentCoords.altitude || selectedTrail.baseElevationM,
-      maxElevationM: currentCoords.altitude || selectedTrail.baseElevationM,
+      currentElevationM: currentCoords.altitude ?? selectedTrail.baseElevationM,
+      maxElevationM: currentCoords.altitude ?? selectedTrail.baseElevationM,
       avgSpeedKmh: 3.6,
       maxRiskLevel: riskAssessment?.level || 'low',
       breadcrumbs: [currentCoords]
@@ -479,6 +489,7 @@ export default function App() {
     setSimulationIndex(0);
     const startPoint = trail.coordinates[0];
     const newCoords: Coordinates = {
+      source: 'demo',
       latitude: startPoint[0],
       longitude: startPoint[1],
       altitude: trail.baseElevationM,
@@ -491,21 +502,26 @@ export default function App() {
     setBreadcrumbs([gpsCoords ?? newCoords]);
   };
 
+  const openDemo = (tab: string) => {
+    stopBrowserGps();
+    setGpsStatus('simulating');
+    setIsSimulating(true);
+    setGpsDeniedAlert(false);
+    setShowLandingPage(false);
+    setActiveTab(tab);
+  };
+
   if (showLandingPage) {
     return (
       <LandingPage
-        onLaunchHUD={() => {
-          setShowLandingPage(false);
-          setActiveTab('vision');
-        }}
-        onOpenMap={() => {
+        onUseDeviceGps={() => {
           setShowLandingPage(false);
           setActiveTab('map');
+          if (!gpsCoords && gpsStatus !== 'requesting') startBrowserGps();
         }}
-        onOpenRisk={() => {
-          setShowLandingPage(false);
-          setActiveTab('risk');
-        }}
+        onLaunchHUD={() => openDemo('vision')}
+        onOpenMap={() => openDemo('map')}
+        onOpenRisk={() => openDemo('risk')}
         onOpenSafety={() => {
           setShowLandingPage(false);
           setActiveTab('safety');
