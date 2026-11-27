@@ -76,14 +76,12 @@ export function getCustomHazards(): HazardReport[] {
   }
 }
 
-export function addCustomHazard(hazard: HazardReport): void {
-  try {
-    const existing = getCustomHazards();
-    const updated = [hazard, ...existing];
-    localStorage.setItem(CUSTOM_HAZARDS_KEY, JSON.stringify(updated));
-  } catch (err) {
-    console.error('Failed to save hazard report:', err);
-  }
+export function addCustomHazard(hazard: HazardReport): HazardReport[] {
+  const raw = localStorage.getItem(CUSTOM_HAZARDS_KEY);
+  const existing: HazardReport[] = raw ? JSON.parse(raw) : [];
+  const updated = [hazard, ...existing];
+  localStorage.setItem(CUSTOM_HAZARDS_KEY, JSON.stringify(updated));
+  return updated;
 }
 
 export function getEmergencyContacts(): EmergencyContact[] {

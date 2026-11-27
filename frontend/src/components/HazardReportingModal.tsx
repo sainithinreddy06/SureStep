@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Coordinates, HazardReport, HazardSeverity, HazardType } from '../types';
-import { AlertTriangle, MapPin, X, Check, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, MapPin, X, Check } from 'lucide-react';
 
 interface HazardReportingModalProps {
-  currentCoords: Coordinates;
+  currentCoords: Coordinates | null;
   onClose: () => void;
   onSubmit: (hazard: HazardReport) => void;
 }
@@ -21,17 +21,18 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentCoords) return;
     if (!title.trim()) {
       setFormError('Please enter a concise hazard title.');
       return;
     }
-    if (!description.trim() || description.length < 8) {
+    if (!description.trim() || description.trim().length < 8) {
       setFormError('Please provide descriptive trail details (minimum 8 characters).');
       return;
     }
 
     const newHazard: HazardReport = {
-      id: `hz-user-${Date.now()}`,
+      id: `hz-user-${crypto.randomUUID()}`,
       title: title.trim(),
       type,
       severity,
@@ -43,11 +44,15 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
         accuracy: currentCoords.accuracy
       },
       reportedAt: Date.now(),
-      verifiedCount: 1
+      verifiedCount: 0
     };
 
-    onSubmit(newHazard);
-    onClose();
+    try {
+      onSubmit(newHazard);
+      onClose();
+    } catch {
+      setFormError('This device could not save the note. Your entries are still here.');
+    }
   };
 
   return (
@@ -59,7 +64,7 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
             <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg">
               <AlertTriangle className="w-4 h-4" />
             </div>
-            <h3 className="font-bold text-stone-100 text-sm">Report Trail Hazard</h3>
+            <h3 className="font-bold text-stone-100 text-sm">Add Local Hazard Note</h3>
           </div>
           <button
             onClick={onClose}
@@ -72,7 +77,7 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 space-y-3.5 text-xs text-stone-300">
           {formError && (
-            <div className="p-2.5 bg-red-950/40 border border-red-800 rounded-lg text-red-300 text-xs">
+            <div role="alert" className="p-2.5 bg-red-950/40 border border-red-800 rounded-lg text-red-300 text-xs">
               {formError}
             </div>
           )}
@@ -81,10 +86,10 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
           <div className="p-2.5 bg-stone-950/70 border border-stone-800 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-stone-400">
               <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Current GPS Anchor:</span>
+              <span>Device GPS</span>
             </div>
             <span className="font-mono text-stone-200 tabular-nums">
-              {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)}
+              {currentCoords ? `${currentCoords.latitude.toFixed(4)}, ${currentCoords.longitude.toFixed(4)}` : 'Connect GPS to save a note'}
             </span>
           </div>
 
@@ -120,7 +125,7 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
                     : 'bg-stone-950 border-stone-800 text-stone-400'
                 }`}
               >
-                Moderate (Passable)
+                Moderate
               </button>
               <button
                 type="button"
@@ -131,7 +136,7 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
                     : 'bg-stone-950 border-stone-800 text-stone-400'
                 }`}
               >
-                High (Difficult)
+                High
               </button>
               <button
                 type="button"
@@ -142,7 +147,7 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
                     : 'bg-stone-950 border-stone-800 text-stone-400'
                 }`}
               >
-                Critical (Blocked)
+                Critical
               </button>
             </div>
           </div>
@@ -184,10 +189,11 @@ export const HazardReportingModal: React.FC<HazardReportingModalProps> = ({
             </button>
             <button
               type="submit"
+              disabled={!currentCoords}
               className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shadow-md flex items-center justify-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Publish Alert
+              Save on This Device
             </button>
           </div>
         </form>
